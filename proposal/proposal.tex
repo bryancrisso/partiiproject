@@ -49,12 +49,12 @@ First, a CPU-based library for performing individual matrix computations in the 
 semiring should be implemented, using a dense representation of matrices.
 Techniques such as vectorisation and tiling should be considered for performance gains.
 
-Expressions of several matrix multiplications will be generated from a program
+Matrix multiplication expressions will be generated from a program
 execution's dependency structure as a graph, with one node per register per dynamic instruction,
 organised as a column of nodes per dynamic instruction.
 
 The aforementioned matrix computation library will be used to compute the results
-of these expressions, using techniques such as caching and optimisation of the evaluation order
+of these expressions, using techniques such as caching and evaluation order optimisation
 to maximise efficiency.
 
 Finally, a benchmark suite for testing performance of implementations will be implemented,
