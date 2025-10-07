@@ -5,6 +5,7 @@
 \usepackage{url}
 \usepackage{amsfonts}
 \usepackage{amsmath}
+\usepackage{hyperref}
 \geometry{margin=1.5in}
 \usepackage{enumitem}
 
@@ -68,11 +69,12 @@ calculations efficiently, considering aspects such as vectorisation,
 tiling, and representation sparsity. I will work with CPU based compute
 and may work with GPU based compute as an extension.
 
-This introduction is adapted from the abstract of Chadwick \cite{Chadderz}.
+\textit{This introduction is adapted from the abstract of Chadwick \cite{Chadderz}.}
 
 \section{The project}
 
 \subsection{Project core}
+\label{sec:core}
 First, a CPU-based library for performing individual matrix computations in the tropical
 semiring should be implemented, using a dense representation of matrices.
 Techniques such as vectorisation and tiling should be considered for performance gains.
@@ -91,6 +93,7 @@ dependency chains (i.e. simulating one instruction at a time naively, computing 
 one-by-one).
 
 \subsection{Project extensions}
+\label{sec:extensions}
 
 \subsubsection{Sparse matrix representation}
 The core of the project implements a matrix computation library using a dense
@@ -145,10 +148,51 @@ The tools will do the following:
 \end{itemize}
 Generated matrix expressions will be used as input to the matrix computation libraries.
 
-\section{Evaluation plan}
-% Outline how you will evaluate the project to determine its success.
-% Include criteria, methods, and metrics.
-TBC
+\section{Success criteria and evaluation plan}
+
+\subsection{Success criteria}
+
+For the dissertation to be considered a success, all items in the project core
+(\hyperref[sec:core]{Section 2.1}) should be completed, and the CPU-based dense
+matrix computation library should show a performance improvement over the naive
+baseline for computing longest paths in register-only DDGs.
+
+If time permits, I will complete the three project extensions described in
+\hyperref[sec:extensions]{Section 2.2}, prioritising them in the order they are presented.
+The success criteria for each extension is as follows:
+\begin{itemize}
+  \item Sparse matrix representation: The implementation from this extension should
+    demonstrate a reduction in memory usage and an improvement in performance for very
+    sparse matrices over the CPU-based dense implementation from the project core.
+  \item GPU compute: The implementations from this extension should show
+    performance improvement over their CPU-based counterparts.
+  \item Through-memory dependencies: The benchmarks from this extension should
+    demonstrate a performance improvement for the matrix computation libraries over
+    the naive baseline for computing the length of the critical path in a full DDG.
+\end{itemize}
+
+All implementations of the matrix computation library should evaluate matrix
+expressions \textbf{correctly}.
+
+\subsection{Evaluation plan}
+
+The evaluation of the matrix computation libraries will be conducted using a
+comprehensive set of benchmarks on both register-only DDGs and ones with through-memory
+dependencies (addition and sparse representations).
+All implementations will be benchmarked against the naive baseline (sequential
+dependency chain computation) to quantify performance improvements.
+
+For each benchmark, the following metrics will be collected:
+\begin{itemize}
+  \item \textbf{Execution time}: Total time taken to compute the longest path, or
+    evaluate the matrix expression.
+  \item \textbf{Memory usage}: Peak and average memory consumption during computation.
+  \item \textbf{Correctness}: Verification that computed results match expected
+    results for known cases.
+\end{itemize}
+
+Results will be analysed to determine which approach is most effective for each
+situation, and to validate the success criteria detailed above.
 
 \section{Plan of work}
 TBC
