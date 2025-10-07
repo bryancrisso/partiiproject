@@ -1,11 +1,14 @@
 \documentclass[a4paper,12pt]{article}
 
 \usepackage{geometry}
-\usepackage{hyperref}
+\usepackage{cite}
+\usepackage{url}
+\usepackage{amsfonts}
+\usepackage{amsmath}
 \geometry{margin=1.5in}
 \usepackage{enumitem}
 
-\title{Optimising \lq{matrix multiplication\rq} calculations in the tropical semiring}
+\title{Efficient instruction-level parallelism analysis using tropical semiring \lq{matrix multiplication\rq}.}
 \author{Bryan Abi Karam}
 \date{\today}
 \begin{document}
@@ -13,34 +16,59 @@
 \maketitle
 
 \section{Introduction}
-Instruction-level parallelism is a crucial aspect of
-high performance processor design. There have been many
-previous studies that compute upper bounds on the amount
-of instruction-level parallelism in programs using mathematical
-models of idealised program execution.
 
-Specifically, one upper bound for parallelism is the number
-of dynamic instructions in a program’s execution divided by
-the length of the longest chain of dependent instructions in
-that program (the critical path). Certainly no real machine
-that takes at least one cycle per instruction can ever execute
-the program faster than the time taken to execute this critical
-path sequentially.
+% WHAT IS ILP?
 
-Computing the length of this critical path can therefore be
-expressed as finding the longest path in a directed acyclic
-graph representing dependencies between dynamic instructions.
+Instruction-level parallelism (ILP) is a technique commonly
+used by high-performance processors to improve performance.
+Previous studies \cite{11096386} have investigated the theoretical
+limits of ILP in programs using models of their dynamic execution.
 
-Tropical analysis is a branch of pure mathematics using
-the tropical semiring (also known as the plus-min/max algebra).
-Notably, finding the longest path in a directed acyclic graph can
-be represented as a series of \lq{matrix multiplications\rq} in the
-tropical semiring.
+% WHAT IS ONE UPPER BOUND FOR PARALLELISM? CRITICAL PATH
+
+An upper bound for parallelism in a program arises from its critical
+path: the longest chain of dependent instructions in the program's
+dynamic execution. For a machine that takes at least one cycle per
+instruction, the program cannot be run faster than the time it takes
+to run the critical path sequentially.
+
+Therefore an upper bound for ILP in a program can be calculated as the
+number of dynamic instructions in the program's execution divided by the
+length of the critical path.
+
+% HOW TO COMPUTE LENGTH OF CRITICAL PATH?
+
+The dependencies of instructions in a program execution can be represented
+by its full dynamic dependency graph (DDG) \cite{753330}, which is a directed
+acyclic graph with one node per dynamically executed instruction in a program.
+The edges of the graph represent dependencies between dynamically executed instructions,
+and so the length of the critical path is the length of the longest path through
+the program's DDG.
+
+% WHAT IS TROPICAL ANALYSIS?
+
+Tropical analysis is a branch of pure mathematics using the tropical semiring \cite{Chadderz},
+also known as the min/max-plus algebra, which is the semiring
+\[(\mathbb{R} \cup \{+\infty\}, \oplus, \otimes)\]
+with operations
+\[
+\begin{aligned}
+  a \oplus b & = \min(a, b) \text{ or} \max(a, b) \\
+  a \otimes b & = a + b
+\end{aligned}
+\]
+The problem of finding the longest path in a DAG can be expressed as a series
+of \lq{matrix multiplications\rq} in the max tropical semiring, as shown by
+Section I-B of Chadwick \cite{Chadderz}.
+
+% WHAT WILL I DO IN THIS PROJECT?
 
 In this project I will create a library for performing such matrix
 calculations efficiently, considering aspects such as vectorisation,
-tiling, and representation sparsity, and work with both CPU and
-GPU-powered compute.
+tiling, and representation sparsity. I will work with CPU based compute
+and may work with GPU based compute as an extension.
+
+This introduction is adapted from the abstract of Chadwick \cite{Chadderz}.
 
 \section{The project}
 
@@ -49,9 +77,9 @@ First, a CPU-based library for performing individual matrix computations in the 
 semiring should be implemented, using a dense representation of matrices.
 Techniques such as vectorisation and tiling should be considered for performance gains.
 
-Matrix multiplication expressions will be generated from a program
-execution's dependency structure as a graph, with one node per register per dynamic instruction,
-organised as a column of nodes per dynamic instruction.
+Matrix multiplication expressions will be generated from a program execution's dependency
+structure as a graph, with one node per register per dynamic instruction,
+in the column-based representation proposed in Section I-B of Chadwick \cite{Chadderz}.
 
 The aforementioned matrix computation library will be used to compute the results
 of these expressions, using techniques such as caching and evaluation order optimisation
@@ -66,9 +94,11 @@ one-by-one).
 
 \subsubsection{Sparse matrix representation}
 The core of the project implements a matrix computation library using a dense
-representation of matrices. In an effort to improve memory usage, I will implement a
-similar CPU-based matrix computation library using a sparse representation of matrices
-as an extension to the project core.
+representation of matrices. In an effort to improve memory usage, and potentially
+improve performance (as the cost of sparse multiplication is proportional to the
+number of non-zeroes in the matrix, rather than just the number of rows and columns),
+I will implement a similar CPU-based matrix computation library using a sparse
+representation of matrices as an extension to the project core.
 
 The sparse library will be benchmarked against the dense library for register-only
 program execution dependency graphs.
@@ -95,17 +125,11 @@ For this approach, I will benchmark the performance of the two previously implem
 matrix computation libraries (running on CPU and GPU) against the baseline.
 
 An alternative approach is to model the effects of memory operations using tropical semiring
-\textit{addition} rather than just multiplication, as described in \href{https://www.google.com}{Section II-B of Chadwick (2025)}.
+\textit{addition} rather than just multiplication, as described in Section II-B of Chadwick \cite{Chadderz}.
 For this approach, I will benchmark the performance of the two previously implemented dense
 matrix computation libraries (running on CPU and GPU) against the baseline.
 
 \section{Starting point}
-No work directly relevant to the project has been completed at the time
-of writing, meaning both the code artefact and accompanying dissertation
-for this project will all be developed after the first Friday of full Michaelmas
-term 2025 (Friday, 10 October 2025). This, of course, does not apply in places
-where citations to the source used are clearly provided.
-
 Existing standard libraries for matrix multiplication cannot be used as they are
 specialised for linear algebra (as opposed to tropical algebra).
 Additionally, techniques such as Strassen's algorithm do not apply in a semiring.
@@ -133,4 +157,6 @@ TBC
 % List resources required for the project (hardware, software, data, etc.)
 TBC
 
+\bibliography{bibliography}{}
+\bibliographystyle{siam}
 \end{document}
