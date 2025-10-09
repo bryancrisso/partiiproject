@@ -153,9 +153,18 @@ Generated matrix expressions will be used as input to the matrix computation lib
 \subsection{Success criteria}
 
 For the dissertation to be considered a success, all items in the project core
-(\hyperref[sec:core]{Section 2.1}) should be completed, and the CPU-based dense
-matrix computation library should show a performance improvement over the naive
-baseline for computing longest paths in register-only DDGs.
+(\hyperref[sec:core]{Section 2.1}) should be completed, specifically the following items:
+\begin{itemize}
+  \item Implement a CPU-based library for performing individual matrix
+    computations in the tropical semiring, using a dense representations of matrices.
+  \item Use the CPU-based library to compute the result of large matrix expressions
+    for computing longest paths in register-only DDGs.
+  \item Establish a baseline performance using a classical technique for computing
+    dependency chains.
+  \item Implement a benchmark suite for testing performance of implementations.
+\end{itemize}
+For the core to be considered a success, the CPU-based library should demonstrate a
+performance improvement over the naive baseline for computing the length of the critical path.
 
 If time permits, I will complete the three project extensions described in
 \hyperref[sec:extensions]{Section 2.2}, prioritising them in the order they are presented.
