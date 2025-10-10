@@ -30,7 +30,7 @@ limits of ILP in programs using models of their dynamic execution.
 An upper bound for parallelism in a program arises from its critical
 path: the longest chain of dependent instructions in the program's
 dynamic execution. For a machine that takes at least one cycle per
-instruction, the program cannot be run faster than the time it takes
+instruction, the program cannot be executed faster than the time it takes
 to run the critical path sequentially.
 
 Therefore an upper bound for ILP in a program can be calculated as the
@@ -48,7 +48,7 @@ the program's DDG.
 
 % WHAT IS TROPICAL ANALYSIS?
 
-Tropical analysis is a branch of pure mathematics using the tropical semiring \cite{Chadderz},
+Tropical analysis is a branch of pure mathematics using the tropical semiring \cite{pin:hal-00113779},
 also known as the min/max-plus algebra, which is the semiring
 \[(\mathbb{R} \cup \{+\infty\}, \oplus, \otimes)\]
 with operations
@@ -58,16 +58,16 @@ with operations
   a \otimes b & = a + b
 \end{aligned}
 \]
-The problem of finding the longest path in a DAG can be expressed as a series
-of \lq{matrix multiplications\rq} in the max tropical semiring, as shown by
-Section I-B of Chadwick \cite{Chadderz}.
+A recent suggesion by Chadwick \cite{Chadderz} is to use matrix multiplication in the max
+tropical semiring to find the longest path in a DAG, and use this for the purposes of
+ILP analysis.
 
 % WHAT WILL I DO IN THIS PROJECT?
 
 In this project I will create a library for performing such matrix
 calculations efficiently, considering aspects such as vectorisation,
-tiling, and representation sparsity. I will work with CPU based compute
-and may work with GPU based compute as an extension.
+tiling, and representation sparsity. I will work with CPU-based compute
+and may work with GPU-based compute as an extension.
 
 \textit{This introduction is adapted from the abstract of Chadwick \cite{Chadderz}.}
 
@@ -89,7 +89,7 @@ to maximise efficiency.
 
 Finally, a benchmark suite for testing performance of implementations will be implemented,
 and a baseline performance will be established using a \lq{classical\rq} technique for computing
-dependency chains (i.e. simulating one instruction at a time naively, computing its dependencies
+dependency chains (i.e.~simulating one instruction at a time naively, computing its dependencies
 one-by-one).
 
 \subsection{Project extensions}
@@ -97,11 +97,12 @@ one-by-one).
 
 \subsubsection{Sparse matrix representation}
 The core of the project implements a matrix computation library using a dense
-representation of matrices. In an effort to improve memory usage, and potentially
-improve performance (as the cost of sparse multiplication is proportional to the
-number of non-zeroes in the matrix, rather than just the number of rows and columns),
-I will implement a similar CPU-based matrix computation library using a sparse
-representation of matrices as an extension to the project core.
+representation of matrices.
+In an effort to improve memory usage, I will implement a similar CPU-based matrix computation
+library using a sparse representation of matrices as an extension to the project core.
+This may potentially improve performance too, as the cost of sparse multiplication is
+proportional to the number of non-zeroes in the matrix, rather than just the number of rows
+and columns.
 
 The sparse library will be benchmarked against the dense library for register-only
 program execution dependency graphs.
@@ -147,13 +148,14 @@ The tools will do the following:
   \item Use the dynamic flow and the per-instruction matrices to create a matrix expression.
 \end{itemize}
 Generated matrix expressions will be used as input to the matrix computation libraries.
+I have not started any work on the project implementation.
 
 \section{Success criteria and evaluation plan}
 
 \subsection{Success criteria}
 
 For the dissertation to be considered a success, all items in the project core
-(\hyperref[sec:core]{Section 2.1}) should be completed, specifically the following items:
+(\hyperref[sec:core]{Section 2.1}) should be completed, specifically the following:
 \begin{itemize}
   \item Implement a CPU-based library for performing individual matrix
     computations in the tropical semiring, using a dense representations of matrices.
@@ -192,13 +194,13 @@ All implementations will be benchmarked against the naive baseline (sequential
 dependency chain computation) to quantify performance improvements.
 
 For each benchmark, the following metrics will be collected:
-\begin{itemize}
-  \item \textbf{Execution time}: Total time taken to compute the longest path, or
+\begin{description}
+  \item[Execution time:] Total time taken to compute the longest path, or
     evaluate the matrix expression.
-  \item \textbf{Memory usage}: Peak and average memory consumption during computation.
-  \item \textbf{Correctness}: Verification that computed results match expected
+  \item[Memory usage:] Peak and average memory consumption during computation.
+  \item [Correctness:] Verification that computed results match expected
     results for known cases.
-\end{itemize}
+\end{description}
 
 Results will be analysed to determine which approach is most effective for each
 situation, and to validate the success criteria detailed above.
