@@ -88,7 +88,9 @@ of these expressions, using techniques such as caching and evaluation order opti
 to maximise efficiency.
 
 Finally, a benchmark suite for testing performance of implementations will be implemented,
-and a baseline performance will be established using a \lq{classical\rq} technique for computing
+focusing on testing key metrics such as execution time, memory usage, and correctness, as outlined
+in \hyperref[sec:eval]{Section 3.2}. This will allow for a systematic comparison of implementations.
+A baseline performance will be established using a \lq{classical\rq} technique for computing
 dependency chains (i.e.~simulating one instruction at a time naively, computing its dependencies
 one-by-one).
 
@@ -186,6 +188,7 @@ All implementations of the matrix computation library should evaluate matrix
 expressions \textbf{correctly}.
 
 \subsection{Evaluation plan}
+\label{sec:eval}
 
 The evaluation of the matrix computation libraries will be conducted using a
 comprehensive set of benchmarks on both register-only DDGs and ones with through-memory
