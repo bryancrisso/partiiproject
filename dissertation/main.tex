@@ -1,0 +1,30 @@
+\documentclass[a4paper]{report}
+
+\usepackage[a4paper, total={6in, 10in}]{geometry}
+
+\usepackage[utf8]{inputenc}
+\usepackage{graphicx}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{bbm}
+\usepackage[hidelinks]{hyperref}
+
+\theoremstyle{definition}
+\newtheorem{definition}{Definition}[section]
+
+\begin{document}
+
+\title{Efficient instruction-level parallelism analysis using tropical semiring \lq{matrix multiplication\rq}}
+\author{\small{ Bryan Abi Karam \textit{bca35@cam.ac.uk} }}
+\maketitle
+
+\tableofcontents
+
+\include{sections/1-intro}
+\include{sections/2-prep}
+\include{sections/3-impl}
+\include{sections/4-eval}
+\include{sections/5-conc}
+
+\end{document}

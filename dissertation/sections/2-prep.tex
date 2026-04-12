@@ -1,0 +1,55 @@
+\chapter{Preparation}
+
+\section{Understanding the matrix-based approach}
+
+The following mathematical framework and its application to dynamic dependency graphs are closely adapted from the
+methodologies established by Chadwick. %TODO: Cite
+
+\subsection{The tropical semiring (max-plus algebra)}
+
+Tropical analysis is a branch of pure mathematics that is the study of the tropical semiring.
+
+ 
+% Define tropical semiring and operations 
+
+\begin{definition}[Semiring]
+  %TODO: cite
+  A semiring is a set $R$ along with two operations, addition (+) and multiplication ($\cdot$), which satisfy the 
+  following axioms:
+
+  \begin{enumerate}
+    \item Addition is associative and commutative.
+    \item Multiplication is associative.
+    \item There exists an additive identity, which we usually call $\mathbbm{0}$. Additionally, $\mathbb{0}$ annihilates 
+      $R$, that is, for all $x \in R$, $0 \cdot x = x \cdot 0 = 0$.
+    \item There exists a multiplicative identity, which we usually call $\mathbb{1}$.
+    \item Multiplication left and right distributes over addition.
+  \end{enumerate}
+\end{definition}
+
+\begin{definition}[Tropical semiring]
+  %TODO: cite
+The tropical semiring, or max-plus algebra, is the object $(\mathbb{R} \cup \{-\infty\}, \oplus, \odot)$ with operations 
+defined as:
+
+$$
+\begin{aligned}
+  a\oplus b &= \max(a,b) \\
+  a\odot b &= a+b
+\end{aligned}
+$$
+
+\end{definition}
+
+% Define matrix multiplication in the context of the tropical semiring TODO: cite
+% Need to prove associativity?
+
+\subsection{Longest paths in Directed Acyclic Graphs}
+
+% Show how this applies to the longest-path problem
+
+Since finding the length of the critical path in a program amounts to finding the longest path in its DDG.
+
+% Show how we arrange the DDG such that we can have a matrix representing dependencies of an instr.
+
+\section{Datasets}
