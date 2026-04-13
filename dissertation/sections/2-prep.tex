@@ -3,8 +3,8 @@
 \section{Understanding the matrix-based approach}
 
 \textit{The following applications of tropical semirings to dynamic dependency graphs, particularly the sections on 
-alternative graph structures (\ref{chap:prep:alternative-graph-structure})
-and register-only longest chains (\ref{chap:intro:section:register-only-chains})
+register-only longest chains (\ref{chap:intro:section:register-only-chains})
+and alternative graph structures (\ref{chap:prep:alternative-graph-structure})
 are closely adapted from the methodologies established by Chadwick \cite{Chadderz}.}
 
 \subsection{The tropical semiring (max-plus algebra)}
@@ -66,11 +66,11 @@ addition operator, and that the multiplication operator distributes over additio
 
 % Show how this applies to the longest-path problem
 
-As established previously, finding the length of the critical path in a program amounts to finding the longest path
+As established previously, finding the length of the critical path in a program results in finding the longest path
 in its DDG. It is noted that the max-plus version of the tropical semiring is applicable to finding the longest path
-in a graph.
+in a graph \cite{krivulin2012maxplusalgebraapproachmodelling}.
 
-One algorithm to find the longest path between nodes $A$ and $B$ in a graph is to recursively take the 
+One algorithm \cite{Chadderz} to find the longest path between nodes $A$ and $B$ in a graph is to recursively take the 
 maximum of all path lengths from all neighbours of $A$ to $B$, plus the cost of the edge from $A$ to the chosen
 neighbour. We can see that this amounts to a Bellman recursion equation \cite{Bellman:DynamicProgramming}
 involving only the max and plus operators: 
@@ -87,15 +87,16 @@ We can observe that, if we have an adjacency matrix (where the cells in that mat
 between the pair of nodes in that row/column, and $-\infty$ if there is no edge), performing tropical semiring 
 matrix multiplication of this matrix with itself corresponds to one step of our longest-path algorithm.
 
-Consider an adjacency matrix $X^{2} = X \odot X$, and denote its entries by $x_{ij}^{(2)}$. We have that $x_{ij}^{(2)} = p$
+Formally we consider an adjacency matrix $X^{2} = X \odot X$, and denote its entries by $x_{ij}^{(2)}$. We have that $x_{ij}^{(2)} = p$
 if and only if there exists at least one path of length $p$ from node $i$ to node $j$ in the corresponding graph,
-consisting of at most two edges, and that path is the longest such path. This extends to any integer exponent $q$.
+consisting of at most two edges, and that path is the longest such path. This extends to any integer exponent $q$
+\cite{krivulin2012maxplusalgebraapproachmodelling}.
 
 \begin{theorem}[Matrix exponentiation results in longest paths] \label{thm:mat-exp-longest-paths}
 
 For any integer $q>0$, the matrix
 $X^{q}$ has the entry $x_{ij}^{(q)} = p$ only if there is a path of length $p$ with at most $q$ edges from $i$ to $j$,
-and that path is the longest such path. \cite{krivulin2012maxplusalgebraapproachmodelling}.
+and that path is the longest such path.
 
 \begin{proof}
   We proceed by induction on $q$, the maximum number of edges in the path.
@@ -141,7 +142,7 @@ For example, consider the graph:
     % Draw the edges (undirected lines) with labels
     \draw [->] (a) -- node[above] {1} (b);
     \draw [->] (a) -- node[below left] {3} (c);
-    \draw [->] (b) -- node[right] {1} (c);
+    \draw [->] (b) -- node[right] {3} (c);
     \draw [->] (c) -- node[above] {1} (d);
 \end{tikzpicture}
 \end{center}
@@ -151,7 +152,7 @@ $$
 X = 
 \begin{pmatrix}
   0 & 1 & 3 & -\infty \\ 
-  -\infty & 0 & 1 & -\infty \\ 
+  -\infty & 0 & 3 & -\infty \\ 
   -\infty & -\infty & 0 & 1 \\
   -\infty & -\infty & -\infty & 0 \\
 \end{pmatrix}
@@ -163,24 +164,91 @@ $$
 \begin{aligned}
   X^{2} &= 
   \begin{pmatrix}
-    0
+    0 & 1 & 4 & 4 \\ 
+    -\infty & 0 & 3 & 4 \\ 
+    -\infty & -\infty & 0 & 1 \\ 
+    -\infty & -\infty & -\infty & 0 \\
   \end{pmatrix} \\ 
   X^{3} &= 
   \begin{pmatrix}
-    0
-  \end{pmatrix}
+    0 & 1 & 4 & 5 \\ 
+    -\infty & 0 & 3 & 4 \\ 
+    -\infty & -\infty & 0 & 1 \\ 
+    -\infty & -\infty & -\infty & 0 \\
+  \end{pmatrix} \\ 
+        & = X^{4} = X^{5} = \dots = X^{\infty}
 \end{aligned}
 $$
 
 \subsection{Forming the DDG and register-only longest chains} \label{chap:intro:section:register-only-chains}
 
-TODO
+Now that we have a method for finding the longest path in a directed acyclic graph, we have to construct the graph 
+upon which to perform our method. Let us first consider the dependencies for instructions only affecting registers.
+Since each instruction has a fixed set of registers which it accesses, it has a fixed dependency structure, and so each 
+instruction in the program trace will have a fixed subgraph in the DDG encoding its dependency information.
+
+For example, we could encode the dependencies for the instruction \verb|R0 = ADD R1, R2| as the subgraph:
+
+\begin{center}
+\begin{tikzpicture}[
+    node distance=0.7cm and 2cm, % vertical and horizontal spacing
+    every node/.style={font=\Large} % makes letters look like your image
+]
+    % Place the nodes
+    \node (r0_0) {\verb|R0|$_{0}$};
+    \node (r1_0) [below=of r0_0] {\verb|R1|$_{0}$};
+    \node (r2_0) [below=of r1_0] {\verb|R2|$_{0}$};
+    \node (r0_1) [right=of r0_0] {\verb|R0|$_{1}$};
+    \node (r1_1) [below=of r0_1] {\verb|R1|$_{1}$};
+    \node (r2_1) [below=of r1_1] {\verb|R2|$_{1}$};
+
+    % Draw the edges
+    \draw [->] (r1_0) -- (r0_1);
+    \draw [->] (r2_0) -- (r0_1);
+
+    % draw the zero-cost edges
+    \draw [->, dashed] (r1_0) -- (r1_1);
+    \draw [->, dashed] (r2_0) -- (r2_1);
+\end{tikzpicture}
+
+{\tiny dashed edges are 0 cost}
+\end{center}
+
+The instruction reads from \verb|R1| and \verb|R2| and uses these values to produce a new value stored in \verb|R0|.
+On the left of the subgraph is the register state before the instruction execution; on the right is after. The 
+characteristics of the subgraph are as follows:
+\begin{itemize}
+  \item Since the value \verb|R0|$_1$ is dependent on \verb|R1|$_0$ and \verb|R2|$_0$, there are cost-1 edges in the graph 
+    from \verb|R1|$_0$ and \verb|R2|$_0$ to \verb|R0|$_1$, extending the dependency chain from the source registers to the 
+    destination by 1 cycle.
+
+  \item The values in \verb|R1| and \verb|R2| are unchanged by the instruction, so their respective states have 0-cost 
+    edges between them. This connects dependency chains from the source registers to any dependency chains starting 
+    at the destination, without increasing their length.
+
+  \item Finally, since the value in \verb|R0| is modified, there is no 0-cost edge between the respective states, as the 
+    old value is discarded and a new chain starts at the new value.
+\end{itemize}
+
+
+The full DDG will consist of several of these subgraphs, horizontally glued together, one new set of dependency edges 
+for each additional instruction.
+
+The true critical path often involves memory operations, as a value may be copied to memory from a register, then 
+potentially millions of instructions later that value is read into a register and used, contributing to a data dependency,
+yet we have not accounted for this here. While Chadwick \cite{Chadderz} has suggested approaches to track through-memory
+dependencies, this project will not do so, as they require dealing with much larger matrices or significantly complicating 
+the structure of the datasets, which fell outside of the project's scope.
+
+Unfortunately, even modest, realistic programs can have trillions of instructions in their 
+traces, and so an adjacency matrix for the entire graph becomes unfeasible. However, we can use an alternative 
+representation.
 
 \subsection{Alternative graph structure} \label{chap:prep:alternative-graph-structure}
 
 % Show how we arrange the DDG such that we can have a matrix representing dependencies of an instr.
 
-Dynamic dependency graphs typically exhibit a layered, sequential structure - they are more long than wide. While a 
+We can see a particular structure in the DDGs we construct - they are more long than wide. While a 
 standard $N \times N$ adjacency matrix (where $N$ is the total number of dynamically executed instructions) could 
 map the graph, it is inefficient.
 This is because, in the DDG, edges \textit{only} 
@@ -357,6 +425,7 @@ from Theorem \ref{thm:mat-exp-longest-paths}.
   all consecutive column matrices sequentially computes the maximum path length across the entire graph.
 \end{corollary}
 
-This defines the shape of the data will be working on. 
+This defines the shape of the data that we will be working on as a mathematical expression consisting of a series of matrix
+multiplications.
 
 \section{Datasets}
