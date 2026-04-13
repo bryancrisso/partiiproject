@@ -109,3 +109,8 @@ limit studies much easier. Consider three windows of instructions: A, B, and C (
 consecutively). To compute ILP information for each window, the traditional approach must be executed 3 times, once for 
 each window. However, the matrix-based approach will only need to run twice, on A and B, and the dependency 
 information matrix for C can simply be obtained by multiplying the result matrices from A and B.
+
+In this project, I will explore several approaches for performing Chadwick's matrix-based approach efficiently, 
+considering various types of parallelism, including at the data, thread, and accelerator level. I will then benchmark 
+and evaluate these approaches, demonstrating a performance improvement over the 'classical' technique for computing 
+dependency chains.
