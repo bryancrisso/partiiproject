@@ -22,7 +22,7 @@ program.
 \subsection{Finding and exploiting ILP in processors}
 
 Previously, processors were in-order and single issue, having a maximum IPC of 1. Each clock cycle, the processor would 
-execute one instruction, in program order, usually through a pipeline architecture.
+execute one instruction, in program order, usually through a pipelined architecture.
 Modern processors commonly exploit ILP, through superscalar processing and out of order execution.
 Superscalar processors issue several independent instructions in a single clock cycle, commonly exhibiting an IPC 
 greater than 1. This means that instructions are scheduled and executed out of order, which is a technique also used
@@ -37,7 +37,7 @@ However, the amount of ILP a processor is able to find and exploit is usually lo
 hardware limitations. These can include:
 
 \begin{itemize}
-  \item Branch/jump mispredictions, which trigger pipeline flushes that require reissue of instructions.
+  \item Branch/jump mispredictions, which typically trigger a discard of all work after the point of misprediction.
   \item Stuctural hazards, such as busy functional units or slow memory accesses.
   \item The number of instructions a superscalar processor can issue at once.
   \item The size of the window used when looking for independent instructions to schedule.
@@ -61,8 +61,8 @@ execution of the program, divided by the length of the critical path.
 
 Idealised models of program execution are commonly used to find the absolute maximum upper bound of ILP. The simulators 
 are fed a trace of an actual program execution on real hardware or a functional simulator. Since this trace already 
-provides the program's path, the simulator does not need to compute the results of instructions, and so it purely acts 
-as a dependency graph analyser and critical path calculator.
+provides the program's path of execution, the simulator does not need to compute the results of instructions, and so it
+purely acts as a dependency graph analyser and critical path calculator.
 
 Instructions have \textit{static} dependencies, where each individual instruction will read from and write to a fixed 
 set of registers and memory locations at its execution. These dependencies for the whole program can be represented by 
@@ -73,7 +73,7 @@ and so the length of the critical path is the length of the longest path through
 % TODO: include diagram for DDG?
 
 Limit studies will also vary the parameters of the analysis, using perfect models that ignore all hardware restrictions
-and try to find the theoretical limit of ILP available in a program, or instead introduce realistic bounds, such as
+and try to find the theoretical limit of ILP available in a program, or instead introducing realistic bounds, such as
 control flow models (imperfect branch prediction), and instruction window scaling, where ILP is only computed within a
 smaller window of instructions (instead of the whole program), to identify how 'local' a program's ILP is.
 
@@ -97,14 +97,14 @@ exploit memoisation of repetitions in program stucture such as loops.
 
 To break this sequential bottleneck, Chadwick proposes a matrix-based approach. The idea is to represent the dependencies 
 between each two instructions in the trace as a matrix, and use matrix multiplication in the max-tropical semiring to 
-compute the longest path in the DDG. This approach becomes a problem of reducing a large equation of matrix multiplications.
+compute the longest path in the DDG. This approach becomes a problem of reducing a large expression of matrix multiplications.
 
-The immediately obvious benefit is that the matrix equation is a divisible computation, due to the associativity of 
+The immediately obvious benefit is that the matrix expression is a divisible computation, due to the associativity of 
 matrix multiplication. The multiplications can be carried out in any order, and intermediate results fully encode the
 dependency information of the instructions they range over. This enables a range of optimisations, including
 thread-level parallelisation, result memoisation, and order of operations based on heuristics.
 
-One additional benefit of the divisibility of the matrix equation is that it makes instruction window scaling for 
+One additional benefit of the divisibility of the matrix expression is that it makes instruction window scaling for 
 limit studies much easier. Consider three windows of instructions: A, B, and C (which is comprised of windows A and B
 consecutively). To compute ILP information for each window, the traditional approach must be executed 3 times, once for 
 each window. However, the matrix-based approach will only need to run twice, on A and B, and the dependency 
