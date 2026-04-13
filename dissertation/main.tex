@@ -7,11 +7,16 @@
 \usepackage{amsmath}
 \usepackage{amsthm}
 \usepackage{amssymb}
-\usepackage{bbm}
+\usepackage{bbold}
+\usepackage{tikz}
 \usepackage[hidelinks]{hyperref}
 
+\usetikzlibrary{positioning, quotes, arrows.meta}
+
 \theoremstyle{definition}
+\newtheorem{theorem}{Theorem}[section]
 \newtheorem{definition}{Definition}[section]
+\newtheorem{corollary}{Corollary}[section]
 
 \begin{document}
 
@@ -26,5 +31,8 @@
 \include{sections/3-impl}
 \include{sections/4-eval}
 \include{sections/5-conc}
+
+\bibliography{references}{}
+\bibliographystyle{plain}
 
 \end{document}
