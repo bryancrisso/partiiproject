@@ -30,6 +30,8 @@
 \newtheorem{definition}{Definition}[section]
 \newtheorem{corollary}{Corollary}[section]
 
+\hbadness=10000
+
 %For a more accurate word count
 %TC:envir table 0 1
 %TC:envir table* 0 1
@@ -109,11 +111,13 @@ Date \today
 
 \chapter*{Proforma}
 
+\begingroup
+\sloppy
 
 \textbf{Candidate number}: XXXXX \\
 \textbf{Project title}: Efficient instruction-level parallelism analysis using tropical semiring `matrix multiplication' \\
 \textbf{Examination}: Computer Science Tripos -- Part II, May 2026  \\
-\textbf{Word count}: XXXX \\
+\textbf{Word count}: XXXX \footnotemark[1]\\
 \textbf{Code line count}: \\
 \textbf{Project originator} (if this is the student please state `The candidate'): Alexandra Chadwick, \textit{awc32} \\
 \textbf{Day-to-day supervisor}: Alexandra Chadwick, \textit{awc32}\\
@@ -126,6 +130,7 @@ by \texttt{detex diss.tex | tr -cd '0-9A-Za-z $\tt\backslash$n' | wc -w}
 }
 \stepcounter{footnote}
 
+\endgroup
 
 \section*{Original aims of the project}
 
