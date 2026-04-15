@@ -3,8 +3,8 @@
 \section{Understanding the matrix-based approach}
 
 \textit{The following applications of tropical semirings to dynamic dependency graphs, particularly the sections on 
-register-only longest chains (\ref{chap:intro:section:register-only-chains})
-and alternative graph structures (\ref{chap:prep:alternative-graph-structure})
+register-only longest chains (\ref{prep:register-only-chains})
+and alternative graph structures (\ref{prep:alternative-matrix-struct})
 are closely adapted from the methodologies established by Chadwick \cite{Chadderz}.}
 
 \subsection{The tropical semiring (max-plus algebra)}
@@ -180,12 +180,20 @@ $$
 \end{aligned}
 $$
 
-\subsection{Forming the DDG and register-only longest chains} \label{chap:intro:section:register-only-chains}
+This corresponds to the longest distance matrix between all pairs of nodes.
 
-Now that we have a method for finding the longest path in a directed acyclic graph, we have to construct the graph 
-upon which to perform our method. Let us first consider the dependencies for instructions only affecting registers.
+\subsection{Forming the DDG and register-only longest chains} \label{prep:register-only-chains}
+
+As defined in Section \ref{intro:methodology}, a standard DDG represents 
+each dynamically executed instruction as a single node. While this formulation is intuitive for visualising the program 
+flow, the structure of the graph is arbitrary, and we would wish to impose a more rigid structure to allow for future
+optimisations, as outlined in Section \ref{prep:alternative-matrix-struct}.
+To do this, we can encode the transformation of the machine's dependency state from one cycle to the next.
+We introduce a new expanded graph structure, which has one node per register per dynamic instruction.
+
+Let us first consider the dependencies for instructions only affecting registers.
 Since each instruction has a fixed set of registers which it accesses, it has a fixed dependency structure, and so each 
-instruction in the program trace will have a fixed subgraph in the DDG encoding its dependency information.
+instruction in the program trace will have a fixed subgraph in the expanded DDG encoding its dependency information.
 
 For example, we could encode the dependencies for the instruction \verb|R0 = ADD R1, R2| as the subgraph:
 
@@ -223,15 +231,15 @@ characteristics of the subgraph are as follows:
     destination by 1 cycle.
 
   \item The values in \verb|R1| and \verb|R2| are unchanged by the instruction, so their respective states have 0-cost 
-    edges between them. This connects dependency chains from the source registers to any dependency chains starting 
-    at the destination, without increasing their length.
+    edges between them. This allows dependency chains from the source registers to `skip over' this particular instruction 
+    that does not affect them.
 
   \item Finally, since the value in \verb|R0| is modified, there is no 0-cost edge between the respective states, as the 
     old value is discarded and a new chain starts at the new value.
 \end{itemize}
 
 
-The full DDG will consist of several of these subgraphs, horizontally glued together, one new set of dependency edges 
+The full DDG will consist of several of these subgraphs, horizontally glued together, with one new set of dependency edges 
 for each additional instruction.
 
 The true critical path often involves memory operations, as a value may be copied to memory from a register, then 
@@ -244,15 +252,15 @@ Unfortunately, even modest, realistic programs can have trillions of instruction
 traces, and so an adjacency matrix for the entire graph becomes unfeasible. However, we can use an alternative 
 representation.
 
-\subsection{Alternative graph structure} \label{chap:prep:alternative-graph-structure}
+\subsection{Alternative graph representation} \label{prep:alternative-matrix-struct}
 
 % Show how we arrange the DDG such that we can have a matrix representing dependencies of an instr.
 
 We can see a particular structure in the DDGs we construct - they are more long than wide. While a 
 standard $N \times N$ adjacency matrix (where $N$ is the total number of dynamically executed instructions) could 
 map the graph, it is inefficient.
-This is because, in the DDG, edges \textit{only} 
-exist between adjacent columns. Therefore, the full adjacency matrix $X$ is mostly filled with $-\infty$.
+This is because, in the DDG, edges \textit{only} exist between adjacent columns.
+Therefore, the full adjacency matrix $X$ is mostly filled with $-\infty$.
 Instead, the DDG can be modelled as a sequence of adjacent columns. 
 Consider an arbitrary graph with the property of being more long than wide:
 
@@ -281,13 +289,12 @@ Consider an arbitrary graph with the property of being more long than wide:
 \end{tikzpicture}
 \end{center}
 
-Whilst we could use the adjacency matrix representation, the structure lends itself to another representation for 
-longest path problems. First of all, we modify the graph such that the longest path will always connected to the 
+First of all, we modify the graph such that the longest path will always connected to the 
 rightmost part of the graph, by adding extra nodes and cost-0 edges, and so also each path is connected to the first 
 column similarly.
 
 To utilize column-wise matrices for longest-path calculations, the graph must first be padded. We introduce a set of 
-'dummy' nodes to the first and last columns, connected by 0-cost edges. This guarantees that any local path within the 
+`dummy' nodes to the first and last columns, connected by 0-cost edges. This guarantees that any local path within the 
 interior of the graph is extended to touch both the initial and final columns.
 
 \begin{center}
@@ -366,7 +373,7 @@ columns. The connectivity between the first two columns is represented as:
 \]
 
 where the $m$th row and $n$th column of this matrix represent the connection from the $m$th node in the first column of 
-the graph to the $n$ node in the second column of the graph.
+the graph to the $n$th node in the second column of the graph.
 
 The remaining two column pairs are represented as:
 
@@ -416,7 +423,7 @@ from Theorem \ref{thm:mat-exp-longest-paths}.
   In a standard adjacency matrix $X$, computing $X^{q}$ checks every possible intermediate node 
   $k$ in the entire graph to find paths of length $q$, as shown by Theorem \ref{thm:mat-exp-longest-paths}.
 
-  In the DDG, when we multiply adjacent column matrices (e.g., $X_{2,3} \odot X_{1,2}$),
+  In a column-wise representation of the DDG, when we multiply adjacent column matrices (e.g., $X_{2,3} \odot X_{1,2}$),
   we are simply performing the exact operations for finding the longest path between columns 1 and 3,
   but restricted only to the intermediate nodes $k$ located in column $2$.
   This is valid as edges in the DDG only exist between adjacent columns.
@@ -425,7 +432,15 @@ from Theorem \ref{thm:mat-exp-longest-paths}.
   all consecutive column matrices sequentially computes the maximum path length across the entire graph.
 \end{corollary}
 
-This defines the shape of the data that we will be working on as a mathematical expression consisting of a series of matrix
-multiplications.
+This defines the final shape of the data that we will be working on as a mathematical expression consisting of a
+series of matrix multiplications. 
+
+We can use the column-wise approach to represent the alternative DDG structure from Section \ref{prep:register-only-chains}.
+Because each dynamic instruction has a static set of dependencies, represented by a matrix, and because there are many 
+more dynamic instructions in the DDG than the number of static instructions in the program, we will see frequent reuse 
+of matrices in the equation, allowing us to find and exploit various patterns, and further reducing the actual memory 
+required to store the DDG.
 
 \section{Datasets}
+
+\section{Project requirements}
