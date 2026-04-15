@@ -54,4 +54,150 @@
   year = 1957,
 }
 
+@book{hennessy_patterson,
+  author = {Hennessy, John L. and Patterson, David A.},
+  title = {Computer Architecture, Fifth Edition: A Quantitative Approach},
+  year = {2011},
+  isbn = {012383872X},
+  publisher = {Morgan Kaufmann Publishers Inc.},
+  address = {San Francisco, CA, USA},
+  edition = {5th},
+  abstract = {The computing world today is in the middle of a revolution: mobile
+              clients and cloud computing have emerged as the dominant paradigms
+              driving programming and hardware innovation today. The Fifth
+              Edition of Computer Architecture focuses on this dramatic shift,
+              exploring the ways in which software and technology in the "cloud"
+              are accessed by cell phones, tablets, laptops, and other mobile
+              computing devices. Each chapter includes two real-world examples,
+              one mobile and one datacenter, to illustrate this revolutionary
+              change. Updated to cover the mobile computing revolutionEmphasizes
+              the two most important topics in architecture today: memory
+              hierarchy and parallelism in all its forms.Develops common themes
+              throughout each chapter: power, performance, cost, dependability,
+              protection, programming models, and emerging trends ("What's Next"
+              )Includes three review appendices in the printed text. Additional
+              reference appendices are available online.Includes updated Case
+              Studies and completely new exercises.},
+}
+
+@book{shen2013modern,
+  title = {Modern Processor Design: Fundamentals of Superscalar Processors},
+  author = {Shen, J.P. and Lipasti, M.H.},
+  isbn = {9781478610762},
+  url = {https://books.google.co.uk/books?id=ffQqAAAAQBAJ},
+  year = {2013},
+  publisher = {Waveland Press},
+}
+
+@inproceedings{wall-ilp,
+  author = {Wall, David W.},
+  title = {Limits of instruction-level parallelism},
+  year = {1991},
+  isbn = {0897913809},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/106972.106991},
+  doi = {10.1145/106972.106991},
+  booktitle = {Proceedings of the Fourth International Conference on
+               Architectural Support for Programming Languages and Operating
+               Systems},
+  pages = {176–188},
+  numpages = {13},
+  location = {Santa Clara, California, USA},
+  series = {ASPLOS IV},
+}
+
+@article{ilp-spec95,
+  author = {Postiff, Matthew A. and Greene, David A. and Tyson, Gary S. and
+            Mudge, Trevor N.},
+  title = {The limits of instruction level parallelism in SPEC95 applications},
+  year = {1999},
+  issue_date = {March 1999},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  volume = {27},
+  number = {1},
+  issn = {0163-5964},
+  url = {https://doi.org/10.1145/309758.309771},
+  doi = {10.1145/309758.309771},
+  journal = {SIGARCH Comput. Archit. News},
+  month = mar,
+  pages = {31–34},
+  numpages = {4},
+}
+
+@inproceedings{ddg,
+  author = {Austin, Todd M. and Sohi, Gurindar S.},
+  title = {Dynamic dependency analysis of ordinary programs},
+  year = {1992},
+  isbn = {0897915097},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  url = {https://doi.org/10.1145/139669.140395},
+  doi = {10.1145/139669.140395},
+  abstract = {A quantitative analysis of program execution is essential to the
+              computer architecture design process. With the current trend in
+              architecture of enhancing the performance of uniprocessors by
+              exploiting fine-grain parallelism, first-order metrics of program
+              execution, such as operation frequencies, are not sufficient;
+              characterizing the exact nature of dependencies between operations
+              is essential.This paper presents a methodology for constructing the
+              dynamic execution graph that characterizes the execution of an
+              ordinary program (an application program written in an imperatibve
+              language such as C or FORTRAN) from a serial execution trace of the
+              program. It then uses the methodology to study parallelism in the
+              SPEC benchmarks. We see that the prallelism can be bursty in nature
+              (periods of lots of parallelism followed by periods of little
+              parallelism), but the average parallelism is quite high, ranging
+              from 13 to 23,302 operations per cycle. Exposing this parallelism
+              requires renaming of both registers and memory, though renaming
+              registers alone exposes much of this parallelism. We also see that
+              fairly large windows of dynamic instructions would be required to
+              expose this parallelism from a sequential instruction stream.},
+  booktitle = {Proceedings of the 19th Annual International Symposium on
+               Computer Architecture},
+  pages = {342–351},
+  numpages = {10},
+  location = {Queensland, Australia},
+  series = {ISCA '92},
+}
+
+@incollection{perpi,
+  TITLE = {{PerPI: A Tool to Measure Instruction Level Parallelism}},
+  AUTHOR = {Goossens, Bernard and Langlois, Philippe and Parello, David and
+            Petit, Eric},
+  URL = {https://hal-lirmm.ccsd.cnrs.fr/lirmm-01349703},
+  BOOKTITLE = {{Applied Parallel and Scientific Computing}},
+  SERIES = {10th International Conference, PARA 2010, Reykjav{\'i}k, Iceland,
+            June 6-9, 2010, Revised Selected Papers, Part I},
+  VOLUME = {LNCS},
+  NUMBER = {7133},
+  PAGES = {270-281},
+  YEAR = {2012},
+  publisher = {Springer Berlin Heidelberg},
+  DOI = {10.1007/978-3-642-28151-8\_27},
+  KEYWORDS = {mixed precision ; polynomial evaluation ; BLAS ; ideal processor ;
+              instruction level parallelism ; Run time performance},
+  PDF = {https://hal-lirmm.ccsd.cnrs.fr/lirmm-01349703v1/file/para10-lncs.pdf},
+  HAL_ID = {lirmm-01349703},
+  HAL_VERSION = {v1},
+}
+
+@inproceedings{future-ilp,
+  author = {Chadwick, Alexandra W. and Erdős, Márton and Bora, Utpal and Bhosale
+            , Akshay and Lytton, Bob and Guo, Yuxin and Cooper, Richard and
+            Gabrielli, Giacomo and Jones, Timothy M.},
+  booktitle = {2025 IEEE International Symposium on Performance Analysis of
+               Systems and Software (ISPASS)},
+  title = {The Future of Instruction-Level Parallelism (ILP)},
+  year = {2025},
+  volume = {},
+  number = {},
+  pages = {350-352},
+  keywords = {Program processors;Upper bound;Computer architecture;Parallel
+              processing;Market research;Software;Hardware;Performance
+              analysis;ilp;ipc;instruction level parallelism;instructions per
+              cycle;limit study;microarchitecture;scaling trends;microprocessor},
+  doi = {10.1109/ISPASS64960.2025.00040},
+}
 
