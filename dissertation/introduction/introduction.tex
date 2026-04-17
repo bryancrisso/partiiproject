@@ -2,6 +2,9 @@
 
 In my project, I...
 
+% ask whether matrix-based tropical semiring formulations can outperform conventional sequential DDG longest-path
+% analysis while preserving correctness on realistic traces.
+
 \section{Instruction Level Parallelism}
 
 \textit{Instruction level parallelism} is the simultaneous execution of instructions in a computer processor~\cite{hennessy_patterson}.
@@ -126,16 +129,16 @@ and so the length of the critical path is the length of the longest path through
 \end{figure}
 
 Limit studies will also vary the parameters of the analysis, using perfect models that ignore all hardware restrictions
-and try to find the theoretical limit of ILP available in a program, or instead introducing realistic bounds, such as
+and try to find the theoretical limit of ILP available in a program. Alternatively, they introduce realistic bounds, such as
 control flow models (imperfect branch prediction), and instruction window scaling, where ILP is only computed within a
-smaller window of instructions (instead of the whole program), to identify how `local' a program's ILP is~\cite{wall-ilp} \cite{future-ilp} \cite{ilp-spec95}.
+smaller window of instructions (instead of the whole program), to identify how `local' a program's ILP is~\cite{wall-ilp, future-ilp, ilp-spec95}.
 
 \section{Motivations}
 
 % Why do we want to develop a new methodology for limit studies?
 
 Traditionally, simulation models use an algorithm that iterates over the execution trace, and at each step calculates 
-the length of dependency paths ending at each register, eventually picking out the longest path at the end of the trace~\cite{wall-ilp}~\cite{ilp-spec95}~\cite{perpi}.
+the length of dependency paths ending at each register, eventually picking out the longest path at the end of the trace~\cite{wall-ilp, ilp-spec95, perpi}.
 Because the dynamic trace inherently guarantees that a producer instruction appears before its consumer,
 the trace acts as a topological sort of the DDG. Therefore, starting at the first instruction in the trace,
 the algorithm amounts to a single-pass linear sweep over this topologically sorted graph to calculate the longest path.
