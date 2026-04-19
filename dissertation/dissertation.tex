@@ -26,6 +26,12 @@
 \usepackage{multirow}
 \usepackage{booktabs}
 \usepackage{makecell}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{booktabs} % For \toprule, \midrule, \bottomrule
+\usepackage{ragged2e} % For better text alignment in narrow columns
+% Define a custom column type for left-aligned wrapping
+\newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
 
 \usetikzlibrary{positioning, quotes, arrows.meta, calc}
 
@@ -35,6 +41,28 @@
 \newtheorem{corollary}{Corollary}[section]
 
 \hbadness=10000
+
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+
+%TODO: Add top and bottom lines for separation
+%TODO: Use \description lists instead of itemize
+\lstdefinestyle{codestyle}{
+    commentstyle=\color{codegray},
+    numberstyle=\tiny,
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2
+}
+
+\lstset{style=codestyle}
 
 %For a more accurate word count
 %TC:envir table 0 1

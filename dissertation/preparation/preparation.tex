@@ -489,12 +489,13 @@ collected by Alexandra Chadwick (\textit{awc32}) using custom tooling.
 
 \subsection{Data properties}
 
+\begin{table}[ht]
 \begin{center}
 \begin{tabular}{lcccccc}
   \toprule
   \textbf{Dataset} & \textbf{Instructions} & \textbf{Basic Blocks} & \multicolumn{4}{c}{\textbf{Biggest Pattern}\protect\footnotemark} \\
   \cmidrule(l){4-7}
-  & (Total) & (Total) & Period\protect\footnotemark & ACR\protect\footnotemark & TI\protect\footnotemark & Coverage\\
+  & (Total) & (Total) & Period\protect\footnotemark & ACI\protect\footnotemark & TI\protect\footnotemark & Coverage\\
   \midrule
   cksum   & 7526926   & 1068940  & 1 & 65535 & 1048560 & 98.1\% \\
   cksum32 & -         & -        & - & - & - & - \\
@@ -505,14 +506,19 @@ collected by Alexandra Chadwick (\textit{awc32}) using custom tooling.
   \bottomrule
 \end{tabular}
 \end{center}
+\caption{Summary of trace analysis on the selected data.}
+\label{tbl:trace-analysis}
+\end{table}
+
 \footnotetext[1]{Results acquired with an analysis tool based on the loop simplifier in Section IMPLEMENTATION, using a 
-window size of 5000 and a history size of 200.}
+window size of 5000 and a history size of 200. The `biggest' pattern in the program is that which covers the largest number 
+of basic blocks}
 \footnotetext[2]{Period is measured in length of basic blocks and is the length of one iteration of a pattern.}
-\footnotetext[3]{Average Consecutive Repetitions: The mean number of times a period of a pattern will repeat without interruption.}
+\footnotetext[3]{Average Consecutive Iterations: The mean number of times a period of a pattern will repeat without interruption.}
 \footnotetext[4]{Total Iterations: The total number of times a period of a pattern exists in the program trace.}
 
-As shown in the table, all datasets exhibit a `largest pattern' covering a significant proportion of the trace.
-The datasets additionally have other significant patterns not shown in the table.
+As shown in Table \ref{tbl:trace-analysis}, all datasets exhibit a `largest pattern' covering a significant proportion of the trace.
+The datasets additionally have other similarly significant patterns not shown in the table.
 These patterns can be exploited in two ways:
 
 \begin{enumerate}
@@ -522,50 +528,79 @@ These patterns can be exploited in two ways:
     the singular result matrix without any extra computation.
 \end{enumerate}
 
-\section{Project planning}
+\section{Project design}
 
-This section details the software engineering approaches used during the project's implementation, specification of the 
-project requirements, and an overview and justification of the tools used.
+This section outlines the software engineering methodology adopted during implementation, specification of the 
+project requirements, and technical justification for the chosen tools.
 
 \subsection{Software engineering}
 
-% The use of AI tools for background research and general subject understanding is always allowed and
-% does not have to be declared. However, for any use of AI tools, it should be remembered that they
-% may “hallucinate” details or make factual errors, while producing very believable text, and they may
-% also reproduce others’ content without acknowledgement. Good academic standards require fact
-% checking for correctness, and where appropriate, citation of suitable sources for any information
-% presented within assessed work.
+For the project, I adopted the iterative spiral methodology. Given the experimental nature of performance optimisation, 
+this methodology allowed for a repetitive cycle of planning, followed by implementation, and concluding with an 
+evaluation phase where performance bottlenecks were identified to inform the next cycle.
 
-I used the spiral methodology when implementating the system, iterating between planning, implementing, and evaluating 
-a new feature.
-
-Code was regularly committed and pushed to GitHub, using feature branches to implement large changes.
-
-Evaluation methodology.
+To maintain codebase integrity during high-frequency iterations, code was regularly committed and pushed to GitHub,
+using feature branches to implement large changes. Commits from branches were squashed upon merge to provide a clean, 
+linear history of major architectural milestones.
 
 \subsection{Project requirements}
 
-Implement naive baseline
+% Use a must-should-could pattern for several sections
+% MoSCoW
 
-Show that I can get valid longest paths using matrix approach
+Requirements are listed in Table \ref{tbl:requirements-analysis}
+and categorised by their priority, according to the MoSCoW method guidelines \cite{moscow}.
 
-Show that I can achieve performance parity in terms of wall time by exploiting patterns
-
-Explore different strategies for pattern exploitation
-
-Explore different strategies for matrix representation multiplication
-
-Show that the matrix representation is formulated of two independent sub-problems by de-synchronising them.
-
-Demonstrate parallelism of underlying representation by introducing multithreaded compute on both sides of the problem.
-
-Attempt to use accelerator (GPU) compute to speed up matrix multiplications.
+\begin{table}[H]
+\centering
+\small % Slightly smaller font to fit more content comfortably
+\begin{tabularx}{\textwidth}{ll L L}
+    \toprule
+    \textbf{ID} & \textbf{Category} & \textbf{Requirement} & \textbf{Success Criteria} \\
+    \midrule
+    NB  & \textit{Must-have} & Naive Baseline Implementation & A valid reference implementation to provide a performance baseline for speedup calculations. \\
+    \addlinespace % Adds a tiny bit of breathing room between wrapped rows
+    MPF & \textit{Must-have}  & Matrix-Based Path Finding & Correctness verification: ensure the matrix approach yields identical results to the naive baseline. \\
+    \addlinespace
+    PE  & \textit{Must-have}  & Pattern Exploitation & Demonstrable reduction in redundant computations by identifying and optimising common patterns in the data. \\
+    \addlinespace
+    MP  & \textit{Should-have} & Multithreaded Parallelism & Achievement of performance scaling on multi-core CPU architectures using an asynchronous sub-problem approach. \\
+    \addlinespace
+    GA  & \textit{Could-have}  & GPU Acceleration & Successful offloading of matrix multiplications to an accelerator, identifying the point at which throughput overtakes overhead. \\
+    \addlinespace
+    DC  & \textit{Won't-have}  & Distributed Cluster Compute & Scaling beyond a single node is outside the scope of this project. \\
+    \addlinespace
+    MT  & \textit{Won't-have}  & Through-memory dependency tracking & Tracking-through memory dependencies is outside the scope of this project. \\
+    \bottomrule
+\end{tabularx}
+\caption{MoSCoW analysis of project requirements and success criteria.}
+\label{tbl:requirements-analysis}
+\end{table}
 
 \subsection{Project tooling}
 
-Programming language: C++ - allowing for fine-grained control over the underlying hardware (including memory management
-and multithreading), which is particularly important in a performance sensitive project.
+The choise of tools was driven by the need for low-level hardware transparency, balanced with architectural flexibility.
 
-Additional compute frameworks: OpenCL - while other proprietary frameworks such as CUDA offer improved performance, the 
-cross-platform nature of the framework allows me to iterate and test code locally on my Intel-based laptop while also being able 
-to run benchmarks on more powerful Nvidia-based systems.
+C++ was selected as the primary programming language, for three critical reasons:
+
+\begin{enumerate}
+  \item It allows for fine-grained memory control, which is essential for performance-sensitive code, allowing for 
+    manual cache alignment and minimising overhead from garbage collection pauses.
+  \item It provides modern object-oriented paradigms, which allow for the use of design patterns to easily hot-swap 
+    different strategies for matrix multiplication and pattern exploitation.
+  \item It facilitates the use of SIMD (Single Instruction, Multiple Data) intrinsics for further low-level optimisation.
+\end{enumerate}
+
+While CUDA provides a highly optimized environment for Nvidia hardware, OpenCL was chosen for its cross-platform portability.
+This allowed for development and kernel debugging on integrated Intel graphics (laptop) before deploying to high-performance 
+Nvidia/AMD discrete GPUs for final benchmarking.
+
+\subsection{Evaluation Methodology}
+
+The project will be evaluated using:
+
+\begin{itemize}
+  \item Correctness testing: Unit tests comparing the output of optimised methods against the naive baseline.
+  \item Performance Benchmarking: Measuring wall clock time, memory usage, and throughput across various datasets.
+  \item Scaling Analysis: Measuring the impact of increasing thread counts to identify the sequential limits of the implementation.
+\end{itemize}
