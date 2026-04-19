@@ -156,7 +156,7 @@ matrix multiplication. The multiplications can be carried out in any order, and 
 dependency information of the instructions they range over. This enables a range of optimisations, including
 thread-level parallelisation, result memoisation, and order of operations based on heuristics.
 
-One additional benefit of the divisibility of the matrix expression is that it makes instruction window scaling for 
+One additional benefit of the associativity of the matrix expression is that it makes instruction window scaling for 
 limit studies much easier. Consider three windows of instructions: A, B, and C (which is comprised of windows A and B
 consecutively). To compute ILP information for each window, the traditional approach must be executed 3 times, once for 
 each window. However, the matrix-based approach will only need to run twice, on A and B, and the dependency 
