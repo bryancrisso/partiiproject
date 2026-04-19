@@ -2,4 +2,203 @@
 
 I implemented the following cool thing...
 
-% Number layout FUCKERY needed.
+% Number layout FUCKERY needed. Could really help!!
+
+\section{Naive Baseline}
+
+*what doe the naive baseline do?*
+
+The core first starts with somewhere to ground ourselves. I developed a program to compute the longest dependency chain in a program, by tracking static inter-instruction dependencies for a series of instructions executed in dynamic program flow.
+
+*high-level algorithm*
+
+This approach essentially boils down to a simple graph algorithm, acting on the program execution's dependency graph as shown in [[II/Part II Project Dissertation/Dissertation/1. Introduction|1. Introduction]].
+
+It iterates through each instruction in the program flow, and at each iteration it:
+1. examines static read dependencies, and computes the size of a potential longest chain of dependencies ending in a dependent register.
+2. examines static write dependencies, and propagates a chain of dependencies to the next iteration.
+
+*pseudocode*
+
+\begin{lstlisting}
+// offset of last writer to register x length of
+// dependency chain at register, indexed by register number
+(int * int) [] currentDependencies 
+
+int maxChainLength = 0;
+
+for (int instrOffset : executionFlow) {
+
+	// length of longest chain at this instruction
+	int chainLength = 1; 
+
+	// pair of arrays describing read and write dependencies
+	(int [] * int []) staticDeps = getStaticDeps(instrOffset);
+
+	// examine read dependencies
+	for (int reg : staticDeps.first) {
+		dep = currentDependencies[reg];
+		if (dep.first > -1) {// register has been previously written
+			if (dep.second + 1 > chainLength) {
+				// select longest chain at this instruction
+				chainLength = dep.second + 1;
+			}
+		}
+	}
+	
+	maxChainLength = max(maxChainLength, chainLength);
+
+	// examine write dependencies
+	for (int reg : staticDeps.second) {
+		dep = currentDependencies[reg];
+		dep.first = i;
+		dep.second = chainLength;
+	}
+	
+	return maxChainLength;
+}
+\end{lstlisting}
+
+%TODO: #clarify why is it a baseline. is this the industry standard?
+%TODO: #explain why it's not a divisible/parallelisable algorithm (as motivation for matrices)
+%TODO: #complain about memory dependencies (and why we only do register deps)
+
+\section{Matrix Multiplications}
+
+Note that Strassen's Algorithm does not hold in a semiring %TODO: #clarify (as there is no additive inverse).
+
+\subsection{A naive matrix implementation}
+
+A common storage paradigm for matrices is row-order storage. %TODO: #expand with diagram AND equation for index.
+
+We can implement a basic three-loop matrix multiplication algorithm based on the dot-product formulation of matrix multiplication:
+%TODO: #check 
+$$
+C_{i,j} = \sum_{k} A_{i,k} \cdot B_{k,j}
+$$
+*pseudocode:*
+\begin{lstlisting}
+Matrix A,B,C
+
+for (int i = 0; i < A.rows(); i++) {
+	for (int j = 0; j < B.cols(); j++) {
+		int64_t sum = plusi;
+		for (int k = 0; k < A.cols(); k++) {
+			sum = plus (sum) (mul A[i,k] B[k,j]);
+		}
+		C[i,j] = sum;
+	}
+}
+\end{lstlisting}
+
+*something about cache performance*
+
+At first glance, we can see that this approach will have poor performance, due to being memory bottlenecked (with poor cache performance).
+A and B are both stored in row-major order, yet inside the inner loop, A is being accessed in row-major order, and B is being accessed in column-major order. So elements of A are being accessed contiguously (friendly to spatial locality), but the elements of B being accessed are unlikely to be on the same cache line, and so will often trigger cache misses.
+The calculation of the sum in the hot loop is a very fast operation and so most of the time the CPU will end up waiting on cache miss penalties.
+
+%TODO: #expand using cache blocking terminology from II ACA?
+
+\subsection{Tiled computation}
+
+If we store both row-order and column-major to fix cache issues we double memory usage ! not good.
+
+We can attempt to fix this by changing the order in which we access elements of the matrices.
+
+%TODO: #todo add tiled mathematical formulation
+
+%TODO: #todo add pseudocode from wikipedia
+
+We can also help by changing the order of our inner loops, leading to a formulation known as the outer product.
+$$
+C_{i,\cdot } = \sum_{j}A_{i,j} \cdot B_{j,\cdot } 
+$$
+We further observe that $A_{i,j} = -\infty \implies A_{i,j}\cdot B_{j,\cdot} = [-\infty,\dots,-\infty]$ by the multiplicative destructivity of $-\infty$.
+
+This gives us an easy optimisation - we can skip scaling $B_{j,.}$ where $A_{i,j}=-\infty$, giving us the final formulation:
+$$
+C_{i,\cdot } = \sum_{A_{i,j}\neq -\infty}A_{i,j} \cdot B_{j,\cdot } 
+$$
+This is a form of computation sparsity, that speeds up our computations significantly. %TODO: #justify
+We will cover more on sparsity when we get to the extension on sparse matrices.
+
+%TODO: #todo add final pseudocode
+
+\subsection{SIMD extensions}
+
+The earlier mathematical formulation exhibits a clear vectorisable operation - namely the scaling of $B_{j,.}$ by $A_{i,j}$.
+
+This allows us to exploit SIMD operations on the data.
+
+%TODO: #expand ??? Is there anything more to write?
+
+%TODO: #todo pseudocode
+
+\subsection{Sparse Matrices}
+
+\subsubsection{CSR Matrix Format}
+
+\subsubsection{Sparse Matrix Multiplication}
+
+\section{Expression Reduction}
+
+\subsection{Fast exponentiation}
+
+Can do fast exponentiation logarithmically. However repetitions usually happen on the loop level, not on the instruction level, so we need to first shrink the representation of a loop into a single matrix.
+
+\subsection{Pair-reduction}
+
+An approach that ends up reducing loops into a single matrix is a general one - memoisation.
+
+%TODO: #check fixed point
+This leads to an iterative (FIXED POINT? ) computation, where at each iteration, we select a pair of matrices to compute their product. We then cache that value, and scan through the entire expression, replacing every instance of that pair with the computed result. After that pass, we look for any exponents in the expression to reduce logarithmically.
+
+At each iteration, we will shrink a pair of matrices in all iterations of a loop's body into a single matrix. So, after several iterations, the loop's body will be shrunk into a singular matrix, and then we can leverage logarithmic exponentiation to quickly shrink the repeated loop matrices into a single matrix.
+%TODO: #todo include diagram demonstrating
+
+We want to make sure that we make the most cost-effective multiplication at each iteration. Clearly we save the most cost by making the most frequent calculation in the matrix. 
+To ensure this, we iterate through the expression, and select the most frequent pair of them all.
+%TODO: #clarify on why we absolutely need this! see below para.
+
+This also has the side-effect of reducing common pairs of instructions quickly through memoisation of the result. 
+
+Once the frequency of the most frequent pair is 1, we can safely continue to directly multiplying matrices (as now there is no point in memoising values or doing frequency computations).
+
+%TODO: todo add pseudocode
+
+\subsection{Multiple pair-reduction}
+
+*while the single-pair reduction ensures the minimum number of multiplications are made, frequency calculation is expensive. As the algorithm progresses, the frequency of pairs tends to reduce, and so the cost of the frequency calculation rises in comparison to the cost saved by memoising the most frequent pair.
+We can make a tradeoff, replacing more pairs per iteration, which means we make less iterations and less frequency calculations*  %TODO: #rewrite 
+
+*doesn't respect loop structure/why it doesn't ensure minimum number of multiplications*
+
+Consider cksum's inner loop of instructions. They form a 7-instruction cycle, repeating 65536 times, that looks something like this:
+$$
+(A B C D E F G)^{65536}
+$$
+Now run the expression reduction, replacing the top 8 most frequent pairs:
+%TODO: #todo add drawn diagram
+We can see that we have reduced two iterations of the loop into one cycle of 7 matrices repeating 32768 times.
+Since this is not exponentiation of one singular matrix, we cannot reduce this using logarithmic exponentiation, and instead have to go through more iterations of frequency computation and pair reductions (at each iteration halving the exponent) until we end up with a single loop of 7 matrices with an exponent of 1.
+%TODO: #justify do the maths on which is better ^^^ #rewrite 
+We haven't respected the boundaries of the loop and therefore haven't reduced INSIDE the loop
+
+%TODO: #todo variable N-pair processing!!!
+
+We want to exploit both the optimal reduction of replacing fewer pairs per iteration, and the increased throughput of replacing more pairs.
+Because of our frequency-based approach, loop bodies shrink earlier (as the body's instructions occur many times!). Once the loops are reduced, we then have lower frequency values which we want to deal with by reducing more pairs every iteration.
+We can do this by increasing the number of pairs to replace each iteration. How to do this, I am unsure as I haven't actually implemented any code. How silly of me.
+
+%TODO: #todo analysis of how equation size changes with paircount
+
+\subsection{Block preprocessing}
+
+In the data given to us we can actually see branch structure so we reduce with respect to loops better - some loops occur over many different branches - this doesn't help here.
+
+\subsection{Finding loops}
+
+\section{Thread-level parallelism}
+
+\section{Accelerator Compute}
+
