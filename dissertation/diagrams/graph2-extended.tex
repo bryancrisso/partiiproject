@@ -1,0 +1,57 @@
+\begin{tikzpicture}[
+    node distance=0.7cm and 2cm, % vertical and horizontal spacing
+    every node/.style={font=\Large} % makes letters look like your image
+]
+    % Place the nodes
+    \node (a) {a};
+    \node (b) [below=of a] {b};
+    \node (c) [right=of a] {c};
+    \node (d) [below=of c] {d};
+    \node (e) [right=of c] {e};
+    \node (g) [right=of e] {g};
+    \node (f) [below=of e] {f};
+    \node (h) [below=of g] {h};
+
+    \node (p1) [above=of a, font=\small] {$p_1$};
+    \node (p2) [above=of c, font=\small] {$p_2$};
+    \node (p3) [above=of e, font=\small] {$p_3$};
+    \node (p4) [above=of g, font=\small] {$p_4$};
+
+    \node (m1) [below=of b, font=\small] {$m_1$};
+    \node (m2) [below=of d, font=\small] {$m_2$};
+    \node (m3) [below=of f, font=\small] {$m_3$};
+    \node (m4) [below=of h, font=\small] {$m_4$};
+
+    % Draw the edges with labels
+    \draw [->] (a) -- node[above] {1} (c);
+    \draw [->] (a) -- node[below] {4} (d);
+    \draw [->] (c) -- node[above] {1} (e);
+    \draw [->] (e) -- node[above] {1} (g);
+    \draw [->] (f) -- node[above] {2} (g);
+    \draw [->] (f) -- node[below] {2} (h);
+
+    % draw the zero-cost edges
+    \draw [->, dashed] (p1) -- (p2);
+    \draw [->, dashed] (p1) -- (c);
+    \draw [->, dashed] (p1) -- (d);
+
+    \draw [->, dashed] (p2) -- (p3);
+    \draw [->, dashed] (p2) -- (e);
+    \draw [->, dashed] (p2) -- (f);
+
+    \draw [->, dashed] (p3) -- (p4);
+    \draw [->, dashed] (p3) -- (g);
+    \draw [->, dashed] (p3) -- (h);
+
+    \draw [->, dashed] (a) -- (m2);
+    \draw [->, dashed] (b) -- (m2);
+    \draw [->, dashed] (m1) -- (m2);
+
+    \draw [->, dashed] (c) -- (m3);
+    \draw [->, dashed] (d) -- (m3);
+    \draw [->, dashed] (m2) -- (m3);
+
+    \draw [->, dashed] (e) -- (m4);
+    \draw [->, dashed] (f) -- (m4);
+    \draw [->, dashed] (m3) -- (m4);
+\end{tikzpicture}

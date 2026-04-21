@@ -1,7 +1,5 @@
 \chapter{Implementation}
 
-I implemented the following cool thing...
-
 % Number layout FUCKERY needed. Could really help!!
 
 This chapter describes the implementation of the different components of the analysis tool, working from the naive 
@@ -81,26 +79,26 @@ The \verb|cksum| program trace (Section \ref{prep:datasets}) has a small inner l
         (*\offset{...}*)
       \end{lstlisting}
     \end{minipage}
+    \begin{tikzpicture}[remember picture, overlay]
+        % 1. x19 (eor) -> x19 (eor)
+        \draw[deparrow] ($(x19_1)+(0.2,0)$) to ($(x19_2)+(0.05,0.1)$);
+
+        % 2. x1 (eor) -> x1 (and)
+        \draw[deparrow] ($(x1_1)+(0.2,0)$) to ($(x1_4)+(0.05,0.1)$);
+        
+        % 3. x1 (and) -> x1 (ldr)
+        \draw[deparrow] ($(x1_3)+(0.35,0.05)$) to ($(x1_5)+(0.05,0.1)$);
+
+        % 4. x0 (ldr) -> x0 (eor)
+        \draw[deparrow] ($(x0_1)+(0.35,0.05)$) to ($(x0_2)+(0.05,0.1)$);
+
+        % 5. x19 (eor) -> x19 (eor)
+        \draw[gdeparrow] ($(x19_3)+(0.4,0)$) to ($(x19_4)+(0.05,0.1)$);
+    \end{tikzpicture}
   \caption{Partially unrolled cksum loop body in Arm Assembly, annotated with critical path dependencies}
   \label{fig:cksum-deps}
 \end{figure}
 
-\begin{tikzpicture}[remember picture, overlay]
-    % 1. x19 (eor) -> x19 (eor)
-    \draw[deparrow] ($(x19_1)+(0.2,0)$) to ($(x19_2)+(0.05,0.1)$);
-
-    % 2. x1 (eor) -> x1 (and)
-    \draw[deparrow] ($(x1_1)+(0.2,0)$) to ($(x1_4)+(0.05,0.1)$);
-    
-    % 3. x1 (and) -> x1 (ldr)
-    \draw[deparrow] ($(x1_3)+(0.35,0.05)$) to ($(x1_5)+(0.05,0.1)$);
-
-    % 4. x0 (ldr) -> x0 (eor)
-    \draw[deparrow] ($(x0_1)+(0.35,0.05)$) to ($(x0_2)+(0.05,0.1)$);
-
-    % 5. x19 (eor) -> x19 (eor)
-    \draw[gdeparrow] ($(x19_3)+(0.4,0)$) to ($(x19_4)+(0.05,0.1)$);
-\end{tikzpicture}
 
 Figure \ref{fig:cksum-deps}
 shows the Arm assembly code for cksum's inner loop, including instructions from previous and successive loop iterations.
@@ -108,7 +106,7 @@ Data dependencies from written registers to read registers are drawn on the figu
 for one iteration of the loop. Note that the critical path repeats across loop iterations.
 
 Given that there are 7 instructions in the loop body, and the length of the critical path over one body is 4, 
-we should expect that the limit of ILP is $7/4=1.75$. Executing the sequential algorithm over one invocation of the inner 
+we should expect that the ILP limit is $7/4=1.75$. Executing the sequential algorithm over one invocation of the inner 
 loop (65536 iterations) processes a total of 458752 instructions, and a critical path length of 262145. Considering this 
 path length includes the outgoing edge from the last execution of instruction \verb|1c68|, we can subtract 1 from this.
 Then, the ILP limit calculated is $458752/262144=1.75$, as expected.

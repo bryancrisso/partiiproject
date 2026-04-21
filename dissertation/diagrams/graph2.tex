@@ -1,0 +1,22 @@
+\begin{tikzpicture}[
+    node distance=0.7cm and 2cm, % vertical and horizontal spacing
+    every node/.style={font=\Large} % makes letters look like your image
+]
+    % Place the nodes
+    \node (a) {a};
+    \node (b) [below=of a] {b};
+    \node (c) [right=of a] {c};
+    \node (d) [below=of c] {d};
+    \node (e) [right=of c] {e};
+    \node (g) [right=of e] {g};
+    \node (f) [below=of e] {f};
+    \node (h) [below=of g] {h};
+
+    % Draw the edges (undirected lines) with labels
+    \draw [->] (a) -- node[above] {1} (c);
+    \draw [->] (a) -- node[below] {4} (d);
+    \draw [->] (c) -- node[above] {1} (e);
+    \draw [->] (e) -- node[above] {1} (g);
+    \draw [->] (f) -- node[above] {2} (g);
+    \draw [->] (f) -- node[below] {2} (h);
+\end{tikzpicture}

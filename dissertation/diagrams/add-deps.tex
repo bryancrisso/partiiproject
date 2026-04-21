@@ -1,0 +1,22 @@
+\begin{tikzpicture}[
+    node distance=0.7cm and 2cm, % vertical and horizontal spacing
+    every node/.style={font=\Large} % makes letters look like your image
+]
+    % Place the nodes
+    \node (r0_0) {\verb|R0|$_{0}$};
+    \node (r1_0) [below=of r0_0] {\verb|R1|$_{0}$};
+    \node (r2_0) [below=of r1_0] {\verb|R2|$_{0}$};
+    \node (r0_1) [right=of r0_0] {\verb|R0|$_{1}$};
+    \node (r1_1) [below=of r0_1] {\verb|R1|$_{1}$};
+    \node (r2_1) [below=of r1_1] {\verb|R2|$_{1}$};
+
+    % Draw the edges
+    \draw [->] (r1_0) -- (r0_1);
+    \draw [->] (r2_0) -- (r0_1);
+
+    % draw the zero-cost edges
+    \draw [->, dashed] (r1_0) -- (r1_1);
+    \draw [->, dashed] (r2_0) -- (r2_1);
+\end{tikzpicture}
+
+{\tiny dashed edges are 0 cost}

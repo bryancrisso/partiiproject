@@ -49,7 +49,7 @@ is not a ring as the max operator does not have an inverse.
 
 % Define matrix multiplication in the context of the tropical semiring
 
-\begin{definition}[Matrix operations in the tropical semiring]
+\begin{definition}[Matrix operations in the tropical semiring] \label{def:mat-mul}
 For any $n\times n$ matrices $X = (x_{ij})$ and $Y = (y_{ij})$, the entries of $U = X \oplus Y$ and $V = X \odot Y$
 are calculated as \cite{krivulin2012maxplusalgebraapproachmodelling}
 
@@ -61,6 +61,11 @@ $$
 
 The matrix operations $\oplus$ and $\odot$ are associative owing to the commutativity and associativity of the underlying 
 addition operator, and that the multiplication operator distributes over addition.
+
+The Strassen algorithm \cite{STRASSEN1969} is a matrix multiplication algorithm with a better asymptotic complexity 
+($O(n^{\log_2 7})$) than the above definition ($O(n^3)$). However, using Strassen's algorithm requires an additive 
+inverse, which does not exist in the tropical semiring (as $\max$ has no inverse),
+and so it is not applicable to our particular use-case.
 
 \subsection{Longest paths in Directed Acyclic Graphs}
 
@@ -130,22 +135,7 @@ So, an adjacency matrix raised to the power infinity will converge to the longes
 
 For example, consider the graph:
 \begin{center}
-\begin{tikzpicture}[
-    node distance=1cm and 2cm, % vertical and horizontal spacing
-    every node/.style={font=\Large} % makes letters look like your image
-]
-    % Place the nodes
-    \node (a) {a};
-    \node (b) [right=of a] {b};
-    \node (c) [below=of b] {c};
-    \node (d) [right=of c] {d};
-
-    % Draw the edges (undirected lines) with labels
-    \draw [->] (a) -- node[above] {1} (b);
-    \draw [->] (a) -- node[below left] {3} (c);
-    \draw [->] (b) -- node[right] {3} (c);
-    \draw [->] (c) -- node[above] {1} (d);
-\end{tikzpicture}
+  \input{diagrams/graph1.tex}
 \end{center}
 
 The corresponding adjacency matrix would be:
@@ -199,28 +189,7 @@ instruction in the program trace will have a fixed subgraph in the expanded DDG 
 For example, we could encode the dependencies for the instruction \verb|R0 = ADD R1, R2| as the subgraph:
 
 \begin{center}
-\begin{tikzpicture}[
-    node distance=0.7cm and 2cm, % vertical and horizontal spacing
-    every node/.style={font=\Large} % makes letters look like your image
-]
-    % Place the nodes
-    \node (r0_0) {\verb|R0|$_{0}$};
-    \node (r1_0) [below=of r0_0] {\verb|R1|$_{0}$};
-    \node (r2_0) [below=of r1_0] {\verb|R2|$_{0}$};
-    \node (r0_1) [right=of r0_0] {\verb|R0|$_{1}$};
-    \node (r1_1) [below=of r0_1] {\verb|R1|$_{1}$};
-    \node (r2_1) [below=of r1_1] {\verb|R2|$_{1}$};
-
-    % Draw the edges
-    \draw [->] (r1_0) -- (r0_1);
-    \draw [->] (r2_0) -- (r0_1);
-
-    % draw the zero-cost edges
-    \draw [->, dashed] (r1_0) -- (r1_1);
-    \draw [->, dashed] (r2_0) -- (r2_1);
-\end{tikzpicture}
-
-{\tiny dashed edges are 0 cost}
+  \input{diagrams/add-deps.tex}
 \end{center}
 
 The instruction reads from \verb|R1| and \verb|R2| and uses these values to produce a new value stored in \verb|R0|.
@@ -266,28 +235,7 @@ Instead, the DDG can be modelled as a sequence of adjacent columns.
 Consider an arbitrary graph with the property of being more long than wide:
 
 \begin{center}
-\begin{tikzpicture}[
-    node distance=0.7cm and 2cm, % vertical and horizontal spacing
-    every node/.style={font=\Large} % makes letters look like your image
-]
-    % Place the nodes
-    \node (a) {a};
-    \node (b) [below=of a] {b};
-    \node (c) [right=of a] {c};
-    \node (d) [below=of c] {d};
-    \node (e) [right=of c] {e};
-    \node (g) [right=of e] {g};
-    \node (f) [below=of e] {f};
-    \node (h) [below=of g] {h};
-
-    % Draw the edges (undirected lines) with labels
-    \draw [->] (a) -- node[above] {1} (c);
-    \draw [->] (a) -- node[below] {4} (d);
-    \draw [->] (c) -- node[above] {1} (e);
-    \draw [->] (e) -- node[above] {1} (g);
-    \draw [->] (f) -- node[above] {2} (g);
-    \draw [->] (f) -- node[below] {2} (h);
-\end{tikzpicture}
+  \input{diagrams/graph2.tex}
 \end{center}
 
 First of all, we modify the graph such that the longest path will always connected to the 
@@ -299,63 +247,7 @@ To utilize column-wise matrices for longest-path calculations, the graph must fi
 interior of the graph is extended to touch both the initial and final columns.
 
 \begin{center}
-\begin{tikzpicture}[
-    node distance=0.7cm and 2cm, % vertical and horizontal spacing
-    every node/.style={font=\Large} % makes letters look like your image
-]
-    % Place the nodes
-    \node (a) {a};
-    \node (b) [below=of a] {b};
-    \node (c) [right=of a] {c};
-    \node (d) [below=of c] {d};
-    \node (e) [right=of c] {e};
-    \node (g) [right=of e] {g};
-    \node (f) [below=of e] {f};
-    \node (h) [below=of g] {h};
-
-    \node (p1) [above=of a, font=\small] {$p_1$};
-    \node (p2) [above=of c, font=\small] {$p_2$};
-    \node (p3) [above=of e, font=\small] {$p_3$};
-    \node (p4) [above=of g, font=\small] {$p_4$};
-
-    \node (m1) [below=of b, font=\small] {$m_1$};
-    \node (m2) [below=of d, font=\small] {$m_2$};
-    \node (m3) [below=of f, font=\small] {$m_3$};
-    \node (m4) [below=of h, font=\small] {$m_4$};
-
-    % Draw the edges with labels
-    \draw [->] (a) -- node[above] {1} (c);
-    \draw [->] (a) -- node[below] {4} (d);
-    \draw [->] (c) -- node[above] {1} (e);
-    \draw [->] (e) -- node[above] {1} (g);
-    \draw [->] (f) -- node[above] {2} (g);
-    \draw [->] (f) -- node[below] {2} (h);
-
-    % draw the zero-cost edges
-    \draw [->, dashed] (p1) -- (p2);
-    \draw [->, dashed] (p1) -- (c);
-    \draw [->, dashed] (p1) -- (d);
-
-    \draw [->, dashed] (p2) -- (p3);
-    \draw [->, dashed] (p2) -- (e);
-    \draw [->, dashed] (p2) -- (f);
-
-    \draw [->, dashed] (p3) -- (p4);
-    \draw [->, dashed] (p3) -- (g);
-    \draw [->, dashed] (p3) -- (h);
-
-    \draw [->, dashed] (a) -- (m2);
-    \draw [->, dashed] (b) -- (m2);
-    \draw [->, dashed] (m1) -- (m2);
-
-    \draw [->, dashed] (c) -- (m3);
-    \draw [->, dashed] (d) -- (m3);
-    \draw [->, dashed] (m2) -- (m3);
-
-    \draw [->, dashed] (e) -- (m4);
-    \draw [->, dashed] (f) -- (m4);
-    \draw [->, dashed] (m3) -- (m4);
-\end{tikzpicture}
+  \input{diagrams/graph2-extended.tex}
 
 {\tiny dashed edges are 0 cost}
 \end{center}
