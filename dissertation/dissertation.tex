@@ -30,10 +30,38 @@
 \usepackage{float}
 \usepackage{booktabs} % For \toprule, \midrule, \bottomrule
 \usepackage{ragged2e} % For better text alignment in narrow columns
+\usepackage{caption}
+
+\captionsetup{justification=centering, singlelinecheck=false}
+
 % Define a custom column type for left-aligned wrapping
 \newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
 
 \usetikzlibrary{positioning, quotes, arrows.meta, calc}
+
+\tikzset{
+    deparrow/.style={
+        -Stealth, 
+        red, 
+        line width=0.8pt, 
+        % opacity=0.3, 
+        shorten >=2pt, 
+        shorten <=2pt
+    },
+    gdeparrow/.style={
+        -Stealth, 
+        gray, 
+        line width=0.8pt, 
+        % opacity=0.3, 
+        shorten >=2pt, 
+        shorten <=2pt,
+        dashed
+    }
+}
+
+\newcommand{\marker}[1]{\tikz[remember picture, overlay, baseline=(#1.base)] \node (#1) {};}
+% \newcommand{\marker}[1]{\tikz[remember picture, overlay] \node[anchor=base, inner sep=0pt] (#1) {\strut};}
+\newcommand{\offset}[1]{\protect\llap{\tiny\ttfamily\color{gray}#1\quad}}
 
 \theoremstyle{definition}
 \newtheorem{theorem}{Theorem}[section]
@@ -59,7 +87,8 @@
     showspaces=false,
     showstringspaces=false,
     showtabs=false,
-    tabsize=2
+    tabsize=2,
+    frame=single
 }
 
 \lstset{style=codestyle}

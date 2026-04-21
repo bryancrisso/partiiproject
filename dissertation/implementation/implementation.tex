@@ -4,64 +4,123 @@ I implemented the following cool thing...
 
 % Number layout FUCKERY needed. Could really help!!
 
+This chapter describes the implementation of the different components of the analysis tool, working from the naive 
+baseline, exploring matrix representations and computations, continuing to data-driven optimisations, and concluding 
+with acceleration of compute using additional hardware.
+
 \section{Naive Baseline}
 
-*what doe the naive baseline do?*
+As described in Section \ref{intro:methodology}, classical techniques for 
+ILP limit studies involve a sequential algorithm iterating through the program trace. We take inspiration from PerPI's 
+use of the Intel Pin Tool \cite{perpi}. The algorithm presented successfully finds the longest path in the DDG described
+in Section \ref{prep:register-only-chains}.
 
-The core first starts with somewhere to ground ourselves. I developed a program to compute the longest dependency chain in a program, by tracking static inter-instruction dependencies for a series of instructions executed in dynamic program flow.
+For each instruction in the program trace, the algorithm:
+\begin{enumerate}
+  \item  Examines static read dependencies, and computes the size of the largest chain of dependencies ending in a dependent register.
+  \item  Examines static write dependencies, and propagates the longest chain of dependencies to the next iteration.
+\end{enumerate}
 
-*high-level algorithm*
+\begin{lstlisting}[language=C++]
+struct StaticDep {
+  int[] reads;
+  int[] writes;
+}
 
-This approach essentially boils down to a simple graph algorithm, acting on the program execution's dependency graph as shown in [[II/Part II Project Dissertation/Dissertation/1. Introduction|1. Introduction]].
+function findLongestPath(int[] trace, map<int, StaticDep> deps) -> int {
+  int[] curDeps = [0,...,0];
 
-It iterates through each instruction in the program flow, and at each iteration it:
-1. examines static read dependencies, and computes the size of a potential longest chain of dependencies ending in a dependent register.
-2. examines static write dependencies, and propagates a chain of dependencies to the next iteration.
+  int maxChainLength = 0;
 
-*pseudocode*
+  for (int instr : trace) {
+    int chainLength = 1;
 
-\begin{lstlisting}
-// offset of last writer to register x length of
-// dependency chain at register, indexed by register number
-(int * int) [] currentDependencies 
+    /* Examine read dependencies */
+    for (int reg : deps[instr].reads) {
+      chainLength = max(chainLength, curDeps[reg].snd + 1);
+    }
 
-int maxChainLength = 0;
+    maxChainLength = max(maxChainLength, chainLength);
 
-for (int instrOffset : executionFlow) {
+    /* Propagate write dependencies */
+    for (int reg : deps[instr].writes) {
+      curDeps[reg].fst = true;
+      curDeps[reg].snd = chainLength;
+    }
+  }
 
-	// length of longest chain at this instruction
-	int chainLength = 1; 
-
-	// pair of arrays describing read and write dependencies
-	(int [] * int []) staticDeps = getStaticDeps(instrOffset);
-
-	// examine read dependencies
-	for (int reg : staticDeps.first) {
-		dep = currentDependencies[reg];
-		if (dep.first > -1) {// register has been previously written
-			if (dep.second + 1 > chainLength) {
-				// select longest chain at this instruction
-				chainLength = dep.second + 1;
-			}
-		}
-	}
-	
-	maxChainLength = max(maxChainLength, chainLength);
-
-	// examine write dependencies
-	for (int reg : staticDeps.second) {
-		dep = currentDependencies[reg];
-		dep.first = i;
-		dep.second = chainLength;
-	}
-	
-	return maxChainLength;
+  return maxChainLength;
 }
 \end{lstlisting}
 
-%TODO: #clarify why is it a baseline. is this the industry standard?
-%TODO: #explain why it's not a divisible/parallelisable algorithm (as motivation for matrices)
-%TODO: #complain about memory dependencies (and why we only do register deps)
+\subsection{Verifying the baseline}
+
+%TODO: not sure i want to write like this.
+We can verify a result from the algorithm by inspecting a small example.
+
+The \verb|cksum| program trace (Section \ref{prep:datasets}) has a small inner loop of 
+7 instructions, which iterates 65536 times each time it is invoked.
+
+\begin{figure}[H]
+  \centering
+    \begin{minipage}{0.6\textwidth}
+      \begin{lstlisting}[frame=none,numbers=none,escapeinside={(*}{*)}, xleftmargin=4em]
+        (*\offset{...}*)
+        (*\offset{1c68}*) (*\color{gray}\textit{eor \marker{x19_1}x19, x0, x19, lsl \#8}*)
+        (*\offset{1c6c}*) (*\color{gray}\textit{cmp x2, x3}*)
+        (*\offset{1c70}*) (*\color{gray}\textit{b.ne 1c58}*)
+        (*\offset{1c58}*) ldrb (*\marker{w1_1}*)w1, [w2], #1
+        (*\offset{1c5c}*) eor (*\marker{x1_1}*)x1, x1, (*\marker{x19_2}*)x19, lsr #24
+        (*\offset{1c60}*) and (*\marker{x1_3}*)x1, (*\marker{x1_4}*)x1, #0xff
+        (*\offset{1c64}*) ldr (*\marker{x0_1}*)x0, [x23, (*\marker{x1_5}*)x1, lsl #3]
+        (*\offset{1c68}*) eor (*\marker{x19_3}*)x19, (*\marker{x0_2}*)x0, x19, lsl #8
+        (*\offset{1c6c}*) cmp x2, x3
+        (*\offset{1c70}*) b.ne 1c58
+        (*\offset{1c58}*) (*\color{gray}\textit{ldrb w1, [w2], \#1}*)
+        (*\offset{1c60}*) (*\color{gray}\textit{eor x1 , x1 , \marker{x19_4}x19 , lsr \#24}*)
+        (*\offset{...}*)
+      \end{lstlisting}
+    \end{minipage}
+  \caption{Partially unrolled cksum loop body in Arm Assembly, annotated with critical path dependencies}
+  \label{fig:cksum-deps}
+\end{figure}
+
+\begin{tikzpicture}[remember picture, overlay]
+    % 1. x19 (eor) -> x19 (eor)
+    \draw[deparrow] ($(x19_1)+(0.2,0)$) to ($(x19_2)+(0.05,0.1)$);
+
+    % 2. x1 (eor) -> x1 (and)
+    \draw[deparrow] ($(x1_1)+(0.2,0)$) to ($(x1_4)+(0.05,0.1)$);
+    
+    % 3. x1 (and) -> x1 (ldr)
+    \draw[deparrow] ($(x1_3)+(0.35,0.05)$) to ($(x1_5)+(0.05,0.1)$);
+
+    % 4. x0 (ldr) -> x0 (eor)
+    \draw[deparrow] ($(x0_1)+(0.35,0.05)$) to ($(x0_2)+(0.05,0.1)$);
+
+    % 5. x19 (eor) -> x19 (eor)
+    \draw[gdeparrow] ($(x19_3)+(0.4,0)$) to ($(x19_4)+(0.05,0.1)$);
+\end{tikzpicture}
+
+Figure \ref{fig:cksum-deps}
+shows the Arm assembly code for cksum's inner loop, including instructions from previous and successive loop iterations.
+Data dependencies from written registers to read registers are drawn on the figure in red, showing the critical path 
+for one iteration of the loop. Note that the critical path repeats across loop iterations.
+
+Given that there are 7 instructions in the loop body, and the length of the critical path over one body is 4, 
+we should expect that the limit of ILP is $7/4=1.75$. Executing the sequential algorithm over one invocation of the inner 
+loop (65536 iterations) processes a total of 458752 instructions, and a critical path length of 262145. Considering this 
+path length includes the outgoing edge from the last execution of instruction \verb|1c68|, we can subtract 1 from this.
+Then, the ILP limit calculated is $458752/262144=1.75$, as expected.
+
+\subsection{Parallelisation?}
+
+%TODO: Rewrite - this is crappy explanation.
+Since only the longest chain is stored at each iteration and all other chains discarded, the \verb|curDeps| array 
+holding the longest chain length ending at each register is not a valid memoisable result for a small instruction window 
+repeating many times in the algorithm. All the longest dependency chains starting at some register and
+ending at another have to be encoded in the result, which pushes us towards the matrix representation.
+Then, propagation of dependencies for all the chains is simply the multiplication of the matrices.
 
 \section{Matrix Multiplications}
 
