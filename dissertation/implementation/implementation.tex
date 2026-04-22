@@ -103,13 +103,13 @@ The \verb|cksum| program trace (Section \ref{prep:datasets}) has a small inner l
 Figure \ref{fig:cksum-deps}
 shows the Arm assembly code for cksum's inner loop, including instructions from previous and successive loop iterations.
 Data dependencies from written registers to read registers are drawn on the figure in red, showing the critical path 
-for one iteration of the loop. Note that the critical path repeats across loop iterations.
+for one iteration of the loop. Note that the critical path repeats and extends across loop iterations.
 
 Given that there are 7 instructions in the loop body, and the length of the critical path over one body is 4, 
 we should expect that the ILP limit is $7/4=1.75$. Executing the sequential algorithm over one invocation of the inner 
-loop (65536 iterations) processes a total of 458752 instructions, and a critical path length of 262145. Considering this 
-path length includes the outgoing edge from the last execution of instruction \verb|1c68|, we can subtract 1 from this.
-Then, the ILP limit calculated is $458752/262144=1.75$, as expected.
+loop (65536 iterations) processes a total of 458752 instructions, and finds a critical path length of 262145. This 
+path length includes the outgoing edge from the last execution of instruction \verb|1c68|, so 1 is subtracted.
+Then, the ILP limit is $458752/262144=1.75$, as expected.
 
 \subsection{Parallelisation?}
 
@@ -126,7 +126,7 @@ This section details several approaches to representing and multiplying matrices
 
 \subsection{A naive matrix implementation}
 
-Matrices are usually represented by a 2-dimensional array of elements. Row-major order and column-major order are methods 
+Matrices are typically represented by a 2-dimensional array of elements. Row-major order and column-major order are methods 
 for storing multidimensional arrays in linear memory (arrays of a single dimension).
 
 \begin{figure}[H]
@@ -137,7 +137,7 @@ for storing multidimensional arrays in linear memory (arrays of a single dimensi
 This implementation chooses row-major as the data representation for our matrices. The index of the element $a_{i,j}$ of
 an $n\times m$ matrix $A$ in the row-major array representing the matrix is $im + j$.
 
-We can implement a basic matrix multiplication algorithm based on the dot-product formulation from Definition \ref{def:mat-mul}.
+We can implement a basic matrix multiplication algorithm based on the formula from Definition \ref{def:mat-mul}.
 
 \begin{lstlisting}[mathescape=true]
 function multiply(Matrix<n,m> X, Matrix<m,p> Y) {
@@ -157,13 +157,15 @@ function multiply(Matrix<n,m> X, Matrix<m,p> Y) {
 }
 \end{lstlisting}
 
+%Modern hardware prefetcher can more easily recognise consecutive access rather than a stride access.
+
 Modern CPU caching exploits spatial locality of reference, where if a piece of data is accessed by the CPU, other pieces
-of data in close proximity will be in the same cache line or prefetched into the cache, therefore reducing the chance of
-an expensive cache miss.
-In the chosen algorithm, matrices X and Y are both stored in row-major order, yet inside the inner loop, X is being accessed in
-row-major order, and Y is being accessed in column-major order. The elements of Y being accessed on consecutive iterations 
-are not in close proximity to each other in memory, and so cache misses dominate the running time, rather than the 
-actual calculations.
+of data in close proximity in memory will be in the same cache line or prefetched into the cache, therefore reducing the
+chance of an expensive cache miss on subsequent cycles.
+In the chosen algorithm, matrices $X$ and $Y$ are both stored in row-major order, yet inside the inner loop, $X$ is
+being traversed row-wise, and $Y$ is being traversed column-wise. The elements of Y being accessed on consecutive
+iterations are not in close proximity to each other in memory, and so cache misses dominate the running time, rather
+than the actual calculations.
 
 This issue can be avoided by storing matrices in both row-major and column-major order. Then, depending on whether the
 matrix is the right or left operand in a multiplication, we can select the most cache-friendly option to traverse.
@@ -172,10 +174,10 @@ This however, doubles our memory usage, and so we instead try to change the orde
 \subsection{Traversal order and cache performance} \label{impl:traversal-order}
 
 The three loops in the previous matrix multiplication can be arbitrarily swapped with each other without an effect 
-on correctness or asymptotic running time. We can swap our $k$ and $j$ loops so that the inner loop traverses Y in 
+on correctness or asymptotic running time. We can swap our $k$ and $j$ loops so that the inner loop traverses $Y$ in 
 row-major order, resulting in the following algorithm:
 
-\begin{lstlisting}[mathescape=true]
+\begin{lstlisting}[mathescape=true, language=C++]
 function multiply(Matrix<n,m> X, Matrix<m,p> Y) {
   Matrix<n,p> V;
 
@@ -245,6 +247,12 @@ in size. Assuming each cell holds a 32-bit integer, an entire matrix is stored i
 which can be easily held in the 32 or 64KiB L1 cache of a modern processor core.
 
 In this case, tiling the matrix will actually result in unnecessary overhead from a more complex control flow.
+
+\textit{\textbf{Note for supervisor} - i am not sure whether this section contradicts my previous comments on cache performance 
+and changing the traversal order. Would it be more accurate to say that while the entire matrix can be stored in 
+a fast cache, the contiguous traversal order is easier for prefetchers to recognise and load data for? Contiguous 
+accesses would also often grab from the same cache line, could this be another benefit? And then, matrix tiling is not 
+so useful as it is more focused on keeping the working set in cache rather than exhibiting a friendly access order.}
 
 \subsection{Sparse Matrices}
 
