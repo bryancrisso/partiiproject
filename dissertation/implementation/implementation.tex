@@ -169,7 +169,7 @@ This issue can be avoided by storing matrices in both row-major and column-major
 matrix is the right or left operand in a multiplication, we can select the most cache-friendly option to traverse.
 This however, doubles our memory usage, and so we instead try to change the order in which we access elements of the matrices.
 
-\subsection{Traversal order and cache performance}
+\subsection{Traversal order and cache performance} \label{impl:traversal-order}
 
 The three loops in the previous matrix multiplication can be arbitrarily swapped with each other without an effect 
 on correctness or asymptotic running time. We can swap our $k$ and $j$ loops so that the inner loop traverses Y in 
@@ -248,17 +248,141 @@ In this case, tiling the matrix will actually result in unnecessary overhead fro
 
 \subsection{Sparse Matrices}
 
+In the previous matrix multiplication algorithm, we presented an optimisation that exploited the sparsity of matrices.
+This provided a significant speedup to multiplications, and so implies we may be able to extract further benefits from 
+the sparsity.
 
+First, we can analyse the sparsity of all the matrices we encounter over the course of calculating the ILP.
 
-%TODO: Diagram
+%TODO: Diagram + average nni
+\textit{insert diagram here}
 
+This shows that a significant proportion of the matrices we encounter are composed of negative infinity values.
+It turns out we can get away without having to store these values, therefore saving on memory space.
 
 \subsubsection{CSR Matrix Format}
 
+There exist many formats for sparse matrix representation. We selected CSR (Compressed Sparse Row) format, as it is also 
+used in the chosen multiplication algorithm presented by Gustavson \cite{gustavson-sparse}.
 
+Unlike most sparse matrix representations, which only store nonzero values, we will be storing only
+non-negative-infinity values, as we are working in the tropical semiring. We quantify the `sparsity' of a matrix using 
+its $nni$ number, the number of values in the matrix that are not $-\infty$.
 
+%TODO: This might be too verbatim from the source.
+The CSR representation for a $m\times n$ matrix $A$ is given by three one-dimensional arrays. Two arrays list column 
+indices ($JA$) and numerical values ($A$) of the \textit{non-negative-infinity} matrix entries. The arrangement of 
+these elements is row-wise. The third array is a set of row address pointers ($IA$) where the $i$th element of $IA$ is 
+the address in both $JA$ and $A$ of the first \textit{non-negative-infinity} element of the $i$th row of $A$.
+
+For example, the matrix:
+
+$$
+\begin{pmatrix}
+  5 & -\infty & -\infty & -\infty \\ 
+  -\infty & 8 & -\infty & -\infty \\ 
+  -\infty & 1 & 3 & -\infty \\ 
+  -\infty & 6 & -\infty & -\infty \\
+\end{pmatrix}
+$$
+
+Is stored as:
+
+\begin{lstlisting}[frame=none,numbers=none]
+IA = [0, 1, 2,    4, 5]
+JA = [0, 1, 1, 2, 1]
+A =  [5, 8, 1, 3, 6]
+\end{lstlisting}
+
+To extract a row $i$, we define:
+
+\begin{lstlisting}[frame=none,numbers=none]
+rowStart = IA[i]
+rowEnd   = IA[i + 1]
+\end{lstlisting}
+
+Then we take slices from $JA$ and $A$ starting at \verb|rowStart| and ending just before \verb|rowEnd|.
+
+In this case the CSR representation contains 15 entries, compared to 16 in the original dense representation. 
+The CSR format saves on memory only when $nni < (m (n - 1) - 1)/2$.
 
 \subsubsection{Sparse Matrix Multiplication}
+
+Gustavson \cite{gustavson-sparse} proposes an algorithm for multiplying two matrices $A$ and $B$ in CSR format.
+Again, as $B$ is stored in row-wise it is more efficient to traverse it row-wise, and so the algorithm depends on the 
+linear combination formulation presented in Section \ref{impl:traversal-order}.
+To find the $i$th row of $C$, for each non-negative-infinity value $A_{ik}$, scale the row $B_{k\cdot}$ by $A_{ik}$,
+and add it to the current row of $C$.
+
+The challenge for the sparse representation is adding these sparse rows together efficiently. To do this, Gustavson 
+introduces a technique using a dense accumulator and a `switch' array. The dense accumulator \verb|x| is an array used 
+to sum up values for the current row. The switch array \verb|xb| is an array used to track which columns have been 
+touched in the current row calculation.
+
+\begin{lstlisting}[mathescape=true,language=C++]
+struct SparseMatrix<m,n> {
+  int rows = m;
+  int cols = n;
+  int[] i; // (IA)
+  int[] j; // (JA)
+  int[] v; // (A)
+}
+
+function multiply(SparseMatrix<m,n> A, SparseMatrix<n,p> B) {
+  int[p] x  = [$-\infty$,...,$-\infty$];
+  int[p] xb = [-1,...,-1];
+  Queue<int>  iCols;
+
+  SparseMatrix<m,p> C;
+
+  C.i[0] = 0;
+
+  for (i : [0,...,m-1]) {
+    for (jp : [A.i[i],...,A.i[i+1]-1]) {
+      int j = A.j[jp];
+      int a = A.v[jp];
+
+      for (kp : [B.i[j],...,B.i[j+1]-1]) {
+        int k = B.j[kp];
+        int b = B.v[kp];
+
+        if (xb[k] != i) {
+          xb[k] = i;
+          x[k] = a + b;
+          iCols.push(k);
+        } else {
+          x[k] = max(x[k], a + b);
+        }
+      }
+    }
+
+    while (!iCols.empty) {
+      int col = iCols.pop();
+      // Assume dynamically allocated arrays
+      C.j.push(col);
+      C.v.push(x[col]);
+    }
+
+    C.i[i+1] = C.j.size;
+  }
+
+  return C;
+}
+\end{lstlisting}
+
+The accumulation is then done as follows:
+
+\begin{itemize}
+  \item If \verb|xb[k] == i|, we have already seen this column for the current row. Simply add the value to the 
+    accumulator \verb|x|.
+  \item Otherwise, this is the first time seeing this column for the current row. Initialize \verb|x|, update \verb|xb|
+    to $i$ and store the column index in a group of active columns.
+  \item After the accumulation is complete, the algorithm copies the active columns and their associated values into the 
+    new sparse matrix.
+\end{itemize}
+
+The algorithm requires dynamic allocation for $C$'s structures, as the $nni$ of $C$ is not known until the
+multiplcation is carried out.
 
 \section{Expression Reduction}
 
