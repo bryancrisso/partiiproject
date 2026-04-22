@@ -122,78 +122,141 @@ Then, propagation of dependencies for all the chains is simply the multiplicatio
 
 \section{Matrix Multiplications}
 
-Note that Strassen's Algorithm does not hold in a semiring %TODO: #clarify (as there is no additive inverse).
+This section details several approaches to representing and multiplying matrices together on the CPU.
 
 \subsection{A naive matrix implementation}
 
-A common storage paradigm for matrices is row-order storage. %TODO: #expand with diagram AND equation for index.
+Matrices are usually represented by a 2-dimensional array of elements. Row-major order and column-major order are methods 
+for storing multidimensional arrays in linear memory (arrays of a single dimension).
 
-We can implement a basic three-loop matrix multiplication algorithm based on the dot-product formulation of matrix multiplication:
-%TODO: #check 
-$$
-C_{i,j} = \sum_{k} A_{i,k} \cdot B_{k,j}
-$$
-*pseudocode:*
-\begin{lstlisting}
-Matrix A,B,C
+\begin{figure}[H]
+  \centering
+  \input{diagrams/row-col-major.tex}
+\end{figure}
 
-for (int i = 0; i < A.rows(); i++) {
-	for (int j = 0; j < B.cols(); j++) {
-		int64_t sum = plusi;
-		for (int k = 0; k < A.cols(); k++) {
-			sum = plus (sum) (mul A[i,k] B[k,j]);
-		}
-		C[i,j] = sum;
-	}
+This implementation chooses row-major as the data representation for our matrices. The index of the element $a_{i,j}$ of
+an $n\times m$ matrix $A$ in the row-major array representing the matrix is $im + j$.
+
+We can implement a basic matrix multiplication algorithm based on the dot-product formulation from Definition \ref{def:mat-mul}.
+
+\begin{lstlisting}[mathescape=true]
+function multiply(Matrix<n,m> X, Matrix<m,p> Y) {
+  Matrix<n,p> V;
+
+  for (i : [0,...,n-1]) {
+    for (j : [0,...,p-1]) {
+      int sum = $-\infty$;
+      for (k : [0,...,m-1]) {
+        sum = max(sum, X[i,k] + Y[k,j]);
+      }
+      V[i,j] = sum;
+    }
+  }
+
+  return V;
 }
 \end{lstlisting}
 
-*something about cache performance*
+Modern CPU caching exploits spatial locality of reference, where if a piece of data is accessed by the CPU, other pieces
+of data in close proximity will be in the same cache line or prefetched into the cache, therefore reducing the chance of
+an expensive cache miss.
+In the chosen algorithm, matrices X and Y are both stored in row-major order, yet inside the inner loop, X is being accessed in
+row-major order, and Y is being accessed in column-major order. The elements of Y being accessed on consecutive iterations 
+are not in close proximity to each other in memory, and so cache misses dominate the running time, rather than the 
+actual calculations.
 
-At first glance, we can see that this approach will have poor performance, due to being memory bottlenecked (with poor cache performance).
-A and B are both stored in row-major order, yet inside the inner loop, A is being accessed in row-major order, and B is being accessed in column-major order. So elements of A are being accessed contiguously (friendly to spatial locality), but the elements of B being accessed are unlikely to be on the same cache line, and so will often trigger cache misses.
-The calculation of the sum in the hot loop is a very fast operation and so most of the time the CPU will end up waiting on cache miss penalties.
+This issue can be avoided by storing matrices in both row-major and column-major order. Then, depending on whether the
+matrix is the right or left operand in a multiplication, we can select the most cache-friendly option to traverse.
+This however, doubles our memory usage, and so we instead try to change the order in which we access elements of the matrices.
 
-%TODO: #expand using cache blocking terminology from II ACA?
+\subsection{Traversal order and cache performance}
 
-\subsection{Tiled computation}
+The three loops in the previous matrix multiplication can be arbitrarily swapped with each other without an effect 
+on correctness or asymptotic running time. We can swap our $k$ and $j$ loops so that the inner loop traverses Y in 
+row-major order, resulting in the following algorithm:
 
-If we store both row-order and column-major to fix cache issues we double memory usage ! not good.
+\begin{lstlisting}[mathescape=true]
+function multiply(Matrix<n,m> X, Matrix<m,p> Y) {
+  Matrix<n,p> V;
 
-We can attempt to fix this by changing the order in which we access elements of the matrices.
+  for (i : [0,...,n-1]) {
+    for (k : [0,...,m-1]) {
+      int xVal = X[i,k];
+      if (xVal == $-\infty$) continue;
 
-%TODO: #todo add tiled mathematical formulation
+      for (j : [0,...,p-1]) {
+        V[i,j] = max(V[i,j], xVal + Y[k,j]);
+      }
+    }
+  }
 
-%TODO: #todo add pseudocode from wikipedia
+  return V;
+}
+\end{lstlisting}
 
-We can also help by changing the order of our inner loops, leading to a formulation known as the outer product.
-$$
-C_{i,\cdot } = \sum_{j}A_{i,j} \cdot B_{j,\cdot } 
-$$
-We further observe that $A_{i,j} = -\infty \implies A_{i,j}\cdot B_{j,\cdot} = [-\infty,\dots,-\infty]$ by the multiplicative destructivity of $-\infty$.
+Apart from the improved cache performance, there are three other optimisations.
 
-This gives us an easy optimisation - we can skip scaling $B_{j,.}$ where $A_{i,j}=-\infty$, giving us the final formulation:
-$$
-C_{i,\cdot } = \sum_{A_{i,j}\neq -\infty}A_{i,j} \cdot B_{j,\cdot } 
-$$
-This is a form of computation sparsity, that speeds up our computations significantly. %TODO: #justify
-We will cover more on sparsity when we get to the extension on sparse matrices.
+\begin{description}
+  \item[Value hoisting] Since the indices $i$ and $k$ do not change in the inner loop of the algorithm, we can hoist the 
+    retrieval of $X_{i,k}$ outside of the loop.
+  \item[Sparsity] This optimisation concerns line 7 of the algorithm. To make sense of it, we can consider an extension
+    to the previous matrix multiplication definition:
+    $$
+    v_{i \cdot} = \displaystyle\sum_{k=1}^{n} \! {}_{\oplus} x_{ik} \odot y_{k\cdot}
+    $$
+    This says that the $i$th row of $V$ is a linear combination of the $k$ rows of $Y$. More importantly, note that 
+    $$
+    -\infty \odot
+    \begin{bmatrix}
+      y_{k 1} \\
+      \vdots \\
+      y_{k p}
+    \end{bmatrix}
+    =
+    \begin{bmatrix}
+      -\infty \\ 
+      \vdots \\ 
+      -\infty
+    \end{bmatrix}
+    $$
+    and since $-\infty$ is the additive identity, this row does not contribute to the final sum, and so the dot product 
+    can be skipped. So, more precisely, the $i$th row of $V$ is a linear combination of the $k$ rows of $Y$ for which 
+    $x_{ik}$ is not $-\infty$ \cite{gustavson-sparse}. The matrices in this project tend to be fairly sparse and so this 
+    results in a significant performance improvement.
+  \item[Vectorisation] Finally, since $Y$ is traversed contiguously in the inner loop, this makes it easily open to 
+    optimisations using vector instructions. Vector instructions, also known as SIMD (Single-Instruction, Multiple-Data) \cite{flynntaxonomy},
+    perform the same operation on several operands, exploiting data-level parallelism. The max and addition operations can 
+    then be performed on the adjacent data from several iterations of the inner loop using vectorised variants, increasing 
+    the number of elements processed per iteration.
+\end{description}
 
-%TODO: #todo add final pseudocode
+\subsection{Matrix tiling}
 
-\subsection{SIMD extensions}
+%TODO: Do i need a more in-depth explanation?
 
-The earlier mathematical formulation exhibits a clear vectorisable operation - namely the scaling of $B_{j,.}$ by $A_{i,j}$.
+One other common method of improving the cache performance of matrix multiplication algorithms is \textit{tiling}.
+This involves implicitly dividing the matrix into square tiles of smaller sizes, and instead of traversing an entire 
+row and column of the operands in one sweep to compute a cell of the output matrix, the algorithm works only on the values 
+within one tile, before moving onto the next. This improves the spatial locality of memory accesses, as elements at the 
+beginning of a row are not evicted by the time we get to the end of the row, which is a problem for large matrices.
 
-This allows us to exploit SIMD operations on the data.
+However, since we are only tracking register dependencies in this project, our matrices are only approximately $64 \times 64$
+in size. Assuming each cell holds a 32-bit integer, an entire matrix is stored in $64\cdot 64 \cdot 4 =16384$ bytes, 
+which can be easily held in the 32 or 64KiB L1 cache of a modern processor core.
 
-%TODO: #expand ??? Is there anything more to write?
-
-%TODO: #todo pseudocode
+In this case, tiling the matrix will actually result in unnecessary overhead from a more complex control flow.
 
 \subsection{Sparse Matrices}
 
+
+
+%TODO: Diagram
+
+
 \subsubsection{CSR Matrix Format}
+
+
+
 
 \subsubsection{Sparse Matrix Multiplication}
 
