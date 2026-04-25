@@ -10,7 +10,7 @@ are closely adapted from the methodologies established by Chadwick \cite{Chadder
 
 \subsection{The tropical semiring (max-plus algebra)}
 
-Tropical analysis is a branch of pure mathematics that is the study of the tropical semiring.
+Tropical analysis is the study of the tropical semiring.
 There are two variants of the tropical semiring, namely the min-plus and max-plus algebras.
 We will use the max-plus convention to apply to \textit{longest} paths in directed acyclic graphs.
 
@@ -218,13 +218,10 @@ yet we have not accounted for this here. While Chadwick \cite{Chadderz} has sugg
 dependencies, this project will not do so, as they require dealing with much larger matrices or significantly complicating 
 the structure of the datasets, which fell outside of the project's scope.
 
-Unfortunately, even modest, realistic programs can have trillions of instructions in their 
-traces, and so an adjacency matrix for the entire graph becomes unfeasible. However, we can use an alternative 
-representation.
+Because realistic program traces often contain trillions of instructions, constructing a full adjacency matrix is 
+computationally unfeasible.
 
 \subsection{Alternative graph representation} \label{prep:alternative-matrix-struct}
-
-% Show how we arrange the DDG such that we can have a matrix representing dependencies of an instr.
 
 We can see a particular structure in the DDGs we construct - they are more long than wide. While a 
 standard $N \times N$ adjacency matrix (where $N$ is the total number of dynamically executed instructions) could 
@@ -238,7 +235,7 @@ Consider an arbitrary graph with the property of being more long than wide:
   \input{diagrams/graph2.tex}
 \end{center}
 
-First of all, we modify the graph such that the longest path will always connected to the 
+First, we modify the graph such that the longest path is always connected to the 
 rightmost part of the graph, by adding extra nodes and cost-0 edges, and so also each path is connected to the first 
 column similarly.
 
@@ -336,9 +333,8 @@ required to store the DDG.
 
 \section{Datasets}
 
-I decided to use execution traces of various coreutils programs as input when testing and benchmarking the analysis tool.
-These programs are familiar to developers and display a range of properties that are favourable to several optimisations 
-we explore.
+I selected execution traces from several GNU coreutils programs (v8.32) to benchmark the analysis tool, all executed on 
+an AArch64 architecture.
 
 \subsection{Dataset listing} \label{prep:datasets}
 
@@ -348,32 +344,32 @@ The chosen program executions are:
   \item \verb|cksum < urandom_1MiB.bin|
 
   the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/cksum-invocation.html}{coreutils cksum utility}}} ,
-  v8.32 running on AArch64, calculating the CRC of a 1MiB file of random bytes.
+  calculating the CRC of a 1MiB file of random bytes.
 
   \item \verb|cksum < urandom_32MiB.bin|
 
   the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/cksum-invocation.html}{coreutils cksum utility}}} ,
-  v8.32 running on AArch64, calculating the CRC of a 32MiB file of random bytes.
+  calculating the CRC of a 32MiB file of random bytes.
 
   \item \verb|factor 9696593808888933181586|
 
   the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/factor-invocation.html}{coreutils factor utility}}} ,
-  v8.32 running on AArch64, 9696593808888933181586.
+  factorising 9696593808888933181586.
 
   \item \verb|sha1sum < urandom_1MiB.bin|
 
   the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/sha1sum-invocation.html}{coreutils sha1sum utility}}} ,
-  v8.32 running on AArch64, computing the SHA1 message digest of a 1MiB file of random bytes.
+  computing the SHA1 message digest of a 1MiB file of random bytes.
 
   \item \verb|sort < urandom_2000_lines.txt|
 
   the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/sort-invocation.html}{coreutils sort utility}}} ,
-  v8.32 running on AArch64, sorting a 2000 line text file of hexadecimal digits encoding random bytes.
+  sorting a 2000 line text file of hexadecimal digits encoding random bytes.
 
   \item \verb|shuf --random-source=urandom_1MiB.bin urandom_34953_lines.txt|
 
   the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/shuf-invocation.html}{coreutils shuf utility}}} ,
-  v8.32 running on AArch64, shuffling a 34953 line text file of hexadecimal digits encoding random bytes.
+  shuffling a 34953 line text file of hexadecimal digits encoding random bytes.
 \end{itemize}
 
 The source data can be found at \url{https://www.cl.cam.ac.uk/~awc32/cam-only/tropical-ilp-p2p/}. The traces were 
@@ -409,6 +405,8 @@ of basic blocks}
 \footnotetext[3]{Average Consecutive Iterations: The mean number of times a period of a pattern will repeat without interruption.}
 \footnotetext[4]{Total Iterations: The total number of times a period of a pattern exists in the program trace.}
 
+%TODO: Talk about the patterns. What are they, how do they arise, etc.?
+
 As shown in Table \ref{tbl:trace-analysis}, all datasets exhibit a `largest pattern' covering a significant proportion of the trace.
 The datasets additionally have other similarly significant patterns not shown in the table.
 These patterns can be exploited in two ways:
@@ -427,9 +425,9 @@ project requirements, and technical justification for the chosen tools.
 
 \subsection{Software engineering}
 
-For the project, I adopted the iterative spiral methodology. Given the experimental nature of performance optimisation, 
-this methodology allowed for a repetitive cycle of planning, followed by implementation, and concluding with an 
-evaluation phase where performance bottlenecks were identified to inform the next cycle.
+I adopted the iterative spiral methodology for this project. Given the experimental nature of performance optimisation, 
+this methodology facilitated continuous cycles of planning, implementation, and evaluation, 
+where performance bottlenecks were identified to inform the next cycle.
 
 To maintain codebase integrity during high-frequency iterations, code was regularly committed and pushed to GitHub,
 using feature branches to implement large changes. Commits from branches were squashed upon merge to provide a clean, 
@@ -460,9 +458,7 @@ and categorised by their priority, according to the MoSCoW method guidelines \ci
     \addlinespace
     GA  & \textit{Could-have}  & GPU Acceleration & Successful offloading of matrix multiplications to an accelerator, identifying the point at which throughput overtakes overhead. \\
     \addlinespace
-    DC  & \textit{Won't-have}  & Distributed Cluster Compute & Scaling beyond a single node is outside the scope of this project. \\
-    \addlinespace
-    MT  & \textit{Won't-have}  & Through-memory dependency tracking & Tracking-through memory dependencies is outside the scope of this project. \\
+    MT  & \textit{Won't-have}  & Through-memory dependency tracking & Excluded from scope to focus on local hardware parallelisation.  \\
     \bottomrule
 \end{tabularx}
 \caption{MoSCoW analysis of project requirements and success criteria.}
@@ -471,7 +467,7 @@ and categorised by their priority, according to the MoSCoW method guidelines \ci
 
 \subsection{Project tooling}
 
-The choise of tools was driven by the need for low-level hardware transparency, balanced with architectural flexibility.
+The choice of tools was driven by the need for low-level hardware transparency, balanced with architectural flexibility.
 
 C++ was selected as the primary programming language, for three critical reasons:
 
