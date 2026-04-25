@@ -57,7 +57,7 @@ function findLongestPath(int[] trace, map<int, StaticDep> deps) -> int {
 We can verify a result from the algorithm by inspecting a small example.
 
 The \verb|cksum| program trace (Section \ref{prep:datasets}) has a small inner loop of 
-7 instructions, which iterates 65536 times each time it is invoked.
+7 instructions, which is a basic block that iterates 65536 times each time it is invoked.
 
 \begin{figure}[H]
   \centering
@@ -392,63 +392,147 @@ The accumulation is then done as follows:
 The algorithm requires dynamic allocation for $C$'s structures, as the $nni$ of $C$ is not known until the
 multiplcation is carried out.
 
-\section{Expression Reduction}
+\section{The matrix approach}
+
+%Show how matrices are stored - ref counting
+
+\section{Expression reduction}
+
+This section describes several data-driven optimisations for reducing the work required to reduce the matrix expression,
+by exploiting patterns.
 
 \subsection{Fast exponentiation}
 
-Can do fast exponentiation logarithmically. However repetitions usually happen on the loop level, not on the instruction level, so we need to first shrink the representation of a loop into a single matrix.
+Fast exponentiation is a method that allows fast computation of large positive integer powers of a square matrix.
+It is based on the recursive equation:
 
-\subsection{Pair-reduction}
+$$
+A^{n} = \begin{cases}
+  A &\text{ if } n=1 \\
+  A\odot(A^{(n-1)/2})^{2} &\text{ if } n>1 \text{ is odd}\\
+  (A^{n/2})^{2} &\text{ if } n \text{ is even}
+\end{cases}
+$$
 
-An approach that ends up reducing loops into a single matrix is a general one - memoisation.
+This reduces the number of matrix multiplications required to evaluate $A^n$ from $O(n)$ to $O(\log n)$.
 
-%TODO: #check fixed point
-This leads to an iterative (FIXED POINT? ) computation, where at each iteration, we select a pair of matrices to compute their product. We then cache that value, and scan through the entire expression, replacing every instance of that pair with the computed result. After that pass, we look for any exponents in the expression to reduce logarithmically.
+\subsection{Pair encoding}
 
-At each iteration, we will shrink a pair of matrices in all iterations of a loop's body into a single matrix. So, after several iterations, the loop's body will be shrunk into a singular matrix, and then we can leverage logarithmic exponentiation to quickly shrink the repeated loop matrices into a single matrix.
-%TODO: #todo include diagram demonstrating
+The next optimisation aims to maximise the effectiveness of a single matrix multiplication by exploiting its frequency 
+in the broader expression. The intuition is that by memoising the result of the most frequent adjacent matrix pair, 
+we can replace all instances of that pair throughout the expression, thereby doing the least amount of work to reduce
+the expression by the largest amount.
 
-We want to make sure that we make the most cost-effective multiplication at each iteration. Clearly we save the most cost by making the most frequent calculation in the matrix. 
-To ensure this, we iterate through the expression, and select the most frequent pair of them all.
-%TODO: #clarify on why we absolutely need this! see below para.
+This results in a multi-pass algorithm. During each iteration, the algorithm scans the expression to find the most 
+frequent adjacent pair of matrices. It then computes the result of their multiplication, and replaces all 
+instances of the pair with the result matrix. This process is repeated until the maximum frequency of a pair reaches a
+specified cutoff threshold.
 
-This also has the side-effect of reducing common pairs of instructions quickly through memoisation of the result. 
+This approach directly mirrors dictionary-based compression algorithms, specifically Byte Pair Encoding (BPE) \cite{GageBPE}.
+BPE iteratively identifies and substitutes the most frequently occurring adjacent symbols in a sequence to minimise 
+data size. This reflects the core principle of entropy coding, which achieves an optimal code by assigning the smallest 
+representational cost (shortest codes) to the most frequent occurrences.
 
-Once the frequency of the most frequent pair is 1, we can safely continue to directly multiplying matrices (as now there is no point in memoising values or doing frequency computations).
+As a consequence, this algorithm is able to effectively exploit the patterns outlined in Section \ref{prep:datasets}.
+For example, returning to cksum's hot loop of 7 instructions:
 
-%TODO: todo add pseudocode
-
-\subsection{Multiple pair-reduction}
-
-*while the single-pair reduction ensures the minimum number of multiplications are made, frequency calculation is expensive. As the algorithm progresses, the frequency of pairs tends to reduce, and so the cost of the frequency calculation rises in comparison to the cost saved by memoising the most frequent pair.
-We can make a tradeoff, replacing more pairs per iteration, which means we make less iterations and less frequency calculations*  %TODO: #rewrite 
-
-*doesn't respect loop structure/why it doesn't ensure minimum number of multiplications*
-
-Consider cksum's inner loop of instructions. They form a 7-instruction cycle, repeating 65536 times, that looks something like this:
 $$
 (A B C D E F G)^{65536}
 $$
-Now run the expression reduction, replacing the top 8 most frequent pairs:
-%TODO: #todo add drawn diagram
-We can see that we have reduced two iterations of the loop into one cycle of 7 matrices repeating 32768 times.
-Since this is not exponentiation of one singular matrix, we cannot reduce this using logarithmic exponentiation, and instead have to go through more iterations of frequency computation and pair reductions (at each iteration halving the exponent) until we end up with a single loop of 7 matrices with an exponent of 1.
-%TODO: #justify do the maths on which is better ^^^ #rewrite 
-We haven't respected the boundaries of the loop and therefore haven't reduced INSIDE the loop
 
-%TODO: #todo variable N-pair processing!!!
+All adjacent pairs of matrices in the hot loop will have the same frequency of 65536. When that is the maximum frequency, 
+the algorithm will compute $A\odot B=X$, and reduce the loop to
 
-We want to exploit both the optimal reduction of replacing fewer pairs per iteration, and the increased throughput of replacing more pairs.
-Because of our frequency-based approach, loop bodies shrink earlier (as the body's instructions occur many times!). Once the loops are reduced, we then have lower frequency values which we want to deal with by reducing more pairs every iteration.
-We can do this by increasing the number of pairs to replace each iteration. How to do this, I am unsure as I haven't actually implemented any code. How silly of me.
+$$
+(X C D E F G)^{65536}
+$$
 
-%TODO: #todo analysis of how equation size changes with paircount
+After several more passes, the loop body will be reduced to a single matrix, raised to the power of 65536, which can then 
+be rapidly evaluated using the fast exponentiation approach.
+
+\subsection{Multiple pair encoding}
+
+While the described pair encoding scheme ensures the most frequent adjacent pair is selected at each iteration,
+computing the frequencies can be expensive. As we evaluate the larger data patterns in the earlier stages of the
+reduction, the top frequency falls dramatically, and simply evaluating the most frequent adjacent pair does not offset
+the cost of performing the frequency analysis.
+
+We can mitigate the cost by choosing to evaluate many adjacent pairs at an iteration, increasing the amount of work done,
+and so reducing the number of iterations required for this stage. The approach we take is to find the top $N$ most 
+frequent pairs, and set them as \textit{candidates} for replacement. Not all chosen pairs will end up being evaluated, 
+as some may disappear during replacement as they are adjacent to other evaluated pairs.  %TODO: unclear wording
+However, this approach is less accurate and can impact the ability to exploit data patterns.
+
+We again inspect cksum's hot loop. We can unroll the loop body once and lay it out like so
+$$
+(A B C D E F G A B C D E F G)^{32768}
+$$
+
+Choosing to replace 8 pairs ($AB\to H, CD \to I, \dots$), one iteration reduces the expression to
+
+$$
+(H I J K L M N)^{32768}
+$$
+
+We can repeat this process, unrolling the new loop body again, performing 8 multiplications,
+and halving the size each time. This will require $8 \cdot \log_2(65536) + 6 = 30$ multiplications \textit{and}
+$\log_2(65536) = 16$ frequency analyses.
+By contrast, replacing one pair per iteration requires $6+\log_2(65536) = 22$ multiplications, and $6$ frequency analyses.
+This is because the reduction happens within the boundaries of the loop body, and reduces it to one matrix, 
+allowing our fast exponentiation algorithm to work.
 
 \subsection{Block preprocessing}
 
-In the data given to us we can actually see branch structure so we reduce with respect to loops better - some loops occur over many different branches - this doesn't help here.
+Initially, the expression held one matrix per instruction in the instruction trace, even though the original program
+trace was provided as a series of basic blocks. We can instead use the information about the program's basic blocks to
+build the expression with individual matrices representing the dependency information for an entire basic block, before 
+passing the expression to the encoding stage.
 
-\subsection{Finding loops}
+This is implemented as a preprocessing stage which fetches a basic block, multiplies the matrices representing all the
+instructions in the block, adds the result matrix to the expression, and caches it for if the same block is encountered 
+again.
+
+This directly avoids reduction occurring across basic block boundaries, and so brings the performance of the multiple 
+pair encoder in line with the single pair encoder. An additional benefit is the reduction in size of the expression 
+passed to the encoder, which not only improves frequency analysis performance, but reduces memory usage.
+
+However, for loop structures with a basic block period $>1$ (see \verb|factor| in Section \ref{prep:datasets}),
+we can still get reduction happening across the boundaries of the loop body's period.
+
+%TODO: The above is unclear/bad wording
+
+\subsection{Variable pair encoding}
+
+This variant of the pair encoding scheme attempts to resolve two issues with the multiple pair encoder, while avoiding 
+the poor performance of the single pair encoder in later iterations of the encoding phase.
+
+\begin{description}
+  \item[Poor accuracy with loop structures] As established previously, the multiple pair encoder will not respect 
+    loop boundaries, and evaluating too many adjacent pairs will combine several iterations of a loop together, instead 
+    of strictly reducing within the loop body.
+  \item [Unclear parameter effect] The `top $N$ pairs' parameter of the multiple pair encoder tends to be opaque, and 
+    its optimal value varies significantly between datasets, as it depends on the internal patterns in the data, not 
+    the length of the trace.
+\end{description}
+
+The variable pair encoder still replaces multiple pairs per iteration, but chooses the count dynamically. In the 
+frequency analysis stage, the encoder builds a max heap of all unique pairs in the expression, sorted by frequency 
+descending. The encoder then pops pairs off the heap, summing the frequencies, until the total frequency of the candidates 
+exceeds a proportional threshold, chosen as a fixed percentage of the expression size.
+
+We can see how this addresses particular pain points.
+
+\begin{itemize}
+  \item In earlier iterations, repeated patterns such as loops dominate the expression, and so the frequencies of 
+    particular adjacent pairs are very high. The encoder will choose a small number of candidate pairs as their total
+    frequency will exceed the threshold quickly. This avoids replacing enough pairs to reduce across loop boundaries.
+  \item In later iterations, the frequencies of adjacent pairs plummets, and so the encoder will choose many more 
+    candidate pairs to exceed the threshold. This ensures enough work is done per iteration to offset the cost of the 
+    frequency analysis.
+  \item Finally, the optimal fixed percentage parameter varies much less across different datasets, as evidenced in %TODO: EVALUATION
+\end{itemize}
+
+\subsection{Finding loops without frequency analysis}
 
 \section{Thread-level parallelism}
 
