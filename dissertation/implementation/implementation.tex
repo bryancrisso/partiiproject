@@ -362,10 +362,23 @@ The accumulation is done as follows:
 The algorithm requires dynamic allocation for $C$'s structures, as the $nni$ of $C$ is not known until the
 multiplication is carried out.
 
-\section{The matrix approach}
+\section{Setting up the matrix approach}
 
-% Show how matrices are stored - ref counting
-% TODO: do
+\textit{work required here}
+
+Matrices are stored on the heap. They are managed using basic reference counting. Matrices are static. 
+%TODO: more detail on reference counting
+
+The `matrix expression' is formed using pointers to the matrix objects on the heap. This allows for easy identification
+--- a matrix representing the static dependencies of an instruction can be referenced multiple times from the expression,
+once for each time the instruction appears in the program trace.
+
+To reduce the expression without exploiting any patterns in the data, we can use a multi-pass tree-reduction approach.
+At each pass, adjacent matrices are multiplied together, and this is repeated until only one matrix is left.
+This allows for multiplications to be batched, which will be useful in Section \ref{impl:split-compute}.
+
+Memoisation of matrix results is simple, and can be done with a mapping from pairs of matrix pointers to a single matrix 
+pointer, to encode $A\odot B = C$.
 
 \section{Fast expression reduction}
 
@@ -397,7 +410,7 @@ effort.
 This results in a multi-pass algorithm. During each iteration, the algorithm scans the expression to find the most 
 frequent adjacent pair of matrices. It then computes the result of their multiplication, and replaces all 
 instances of the pair with the result matrix. This process is repeated until the maximum frequency of a pair reaches a
-specified cutoff threshold. %TODO: include the fast exponentiation in the iteration.
+specified cutoff threshold.
 
 This approach directly mirrors dictionary-based compression algorithms, specifically Byte Pair Encoding (BPE) \cite{GageBPE}.
 BPE iteratively identifies and substitutes the most frequently occurring adjacent symbols in a sequence to minimise 
@@ -420,6 +433,10 @@ $$
 
 After several more passes, the loop body will be reduced to a single matrix, raised to the power of 65536, which can 
 be rapidly evaluated using the fast exponentiation approach.
+
+The `encoding' stage is then formed of a repeated application of pair encoding and fast exponentiation. Pair encoding 
+will reduce each repeat of a pattern to a single matrix, and fast exponentiation will collapse repeats into a single matrix.
+This process repeats until the pair encoder reaches the cutoff threshold.
 
 \subsection{Multiple pair encoding}
 
@@ -464,7 +481,7 @@ caches it for future iterations.
 
 This directly avoids reduction occurring across basic block boundaries, and so brings the performance of the multiple 
 pair encoder closer to the single pair encoder. An additional benefit is the reduction in size of the expression 
-passed to the encoder, which not only improves frequency analysis performance, but reduces memory usage.
+passed to the encoder, which not only improves frequency analysis performance, but also reduces memory usage.
 
 However, for loop structures with a period $>1$ (for example, \verb|factor| presented in Section \ref{prep:datasets}),
 we can still get reduction happening across the boundaries of the loop body's period.
@@ -574,7 +591,7 @@ function simplifyTrace(int[] trace) {
 \end{lstlisting}
 
 To maintain a linear time performance, the algorithm uses a bounded history buffer that acts as a sliding window.
-When it encounters a previously recorded symbol, in this case a matrix identifier, the algorithm searches backwards 
+When it encounters a previously recorded symbol, in this case a matrix pointer, the algorithm searches backwards 
 through recent history; this prioritises the detection of the smallest loop bodies, satisfying primitivity.
 If a repeated period is confirmed via \verb|verifyMatch|, the algorithm greedily scans forward to find the number of consecutive
 iterations. The loop body is reduced to a single matrix, cached for future identical loops, and exponentiated to replace
@@ -629,7 +646,7 @@ This function scans ahead to find how many consecutive iterations there are.
 % Encoding: do { pair Encode; run length encode; } while (pairEncoder has made changes)
 % Tree reduction
 
-\section{Splitting compute responsibility}
+\section{Splitting compute responsibility} \label{impl:split-compute}
 
 % explain that choosing evaluation order and evaluation are two separate and asynchronous tasks
 % Ordering must happen first but evaluation can happen at any time.
@@ -654,3 +671,5 @@ This function scans ahead to find how many consecutive iterations there are.
 % GPU Kernel
 
 % Explain GPUs are throughput and not latency, so we have to batch multiplications.
+
+\section{Repository overview}
