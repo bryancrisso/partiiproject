@@ -112,7 +112,7 @@ baseline.
 Because the algorithm only stores the longest chain ending at each register and discards all others, the \verb|curDeps|
 array cannot memoise intermediate results for small instruction windows. Instead, all the longest dependency chains
 starting at some register and ending at another have to be encoded in the result, which pushes us towards the matrix
-representation. Then, propagation of dependencies for all the chains is simply the multiplication of the matrices.
+representation. Propagation of dependencies for all the chains is simply the multiplication of the matrices.
 
 \section{Matrix Multiplications}
 
@@ -213,30 +213,30 @@ Apart from the improved cache performance, there are three other optimisations.
 \subsection{Matrix tiling}
 
 One other common method of improving the cache performance of matrix multiplication algorithms is \textit{tiling}.
-Tiling implicitly divides the matrix into smaller square blocks, restricting computations to one tile at a time to 
+Tiling implicitly divides the matrix into smaller square blocks, computing in one tile at a time to 
 keep the active working set within the cache. This improves the spatial locality of memory accesses, as elements at the 
 beginning of a row are not evicted by the time we get to the end of the row, which is a problem for large matrices.
 
-While matrix tiling is a standard optimisation for keeping active working sets within cache, it introduces complex 
-control-flow overhead. Because we only track register dependencies, our matrices are only approximately $64 \times 64$.
+While matrix tiling is a popular optimisation, it introduces complex control-flow overhead. Because we only track
+register dependencies, our matrices are only approximately $64 \times 64$ in size.
 Assuming cells hold 32-bit integers, an entire matrix just requires $16384$ bytes, fitting comfortably withinn the 
 32KiB or 64KiB L1 data cache of a modern processor core. Therefore, tiling is unnecessary in our case and the control
-flow overhead is unnecessary; instead, the contiguous linear traversal provides better performance by aligning perfectly
-with hardware prefetchers.
+flow overhead is wasteful; instead, the contiguous linear traversal already provides the improved performance by aligning
+perfectly with hardware prefetchers.
 
 \subsection{Sparse Matrices}
 
 In the previous matrix multiplication algorithm, we presented an optimisation that exploited the sparsity of matrices.
-This provided a significant speedup to multiplications, and so implies we may be able to extract further benefits from 
-the sparsity.
+This provided a significant speedup to multiplications, and so we may be able to extract further benefits from 
+exploiting matrix sparsity.
 
-First, we can analyse the sparsity of all the matrices we encounter over the course of calculating the ILP.
+First, we analyse the sparsity of all matrices encountered during the expression reduction.
 
 %TODO: Diagram + average nni
 \textit{insert diagram here}
 
 This shows that a significant proportion of the matrices we encounter are composed of negative infinity values.
-It turns out we can get away without having to store these values, therefore saving on memory space.
+Omitting these values from storage significantly reduces memory consumption.
 
 \subsubsection{CSR Matrix Format}
 
@@ -244,7 +244,7 @@ There exist many formats for sparse matrix representation. We selected CSR (Comp
 used in the chosen multiplication algorithm presented by Gustavson \cite{gustavson-sparse}.
 
 Because we operate within the tropical semiring, our implementation stores only non-negative-infinity values rather than 
-the traditional non-zero values. We quantify matrix `sparsity' with its $nni$ count, the number of values in the matrix
+the traditional non-zero values. We quantify matrix `sparsity' with the $nni$ count, the number of values in a matrix
 that are not $-\infty$.
 
 %TODO: This might be too verbatim from the source.
@@ -293,9 +293,9 @@ To find the $i$th row of $C$, for each non-negative-infinity value $A_{ik}$, sca
 and add it to the current row of $C$.
 
 The challenge for the sparse representation is adding these sparse rows together efficiently. To do this, Gustavson 
-introduces a technique using a dense accumulator and a `switch' array. The dense accumulator \verb|x| is an array used 
-to sum up values for the current row. The switch array \verb|xb| is an array used to track which columns have been 
-touched in the current row calculation.
+uses a dense accumulator and a `switch' array. The dense accumulator \verb|x| is an array used to sum up values for the
+current row. The switch array \verb|xb| is an array used to track which columns have been touched in the current row
+calculation.
 
 \begin{lstlisting}[mathescape=true,language=C++]
 struct SparseMatrix<m,n> {
@@ -348,13 +348,13 @@ function multiply(SparseMatrix<m,n> A, SparseMatrix<n,p> B) {
 }
 \end{lstlisting}
 
-The accumulation is then done as follows:
+The accumulation is done as follows:
 
 \begin{itemize}
   \item If \verb|xb[k] == i|, we have already seen this column for the current row. Simply add the value to the 
     accumulator \verb|x|.
   \item Otherwise, this is the first time seeing this column for the current row. Initialize \verb|x|, update \verb|xb|
-    to $i$ and store the column index in a group of active columns.
+    to $i$ and add the column index to the set of touched columns.
   \item After the accumulation is complete, the algorithm copies the active columns and their associated values into the 
     new sparse matrix.
 \end{itemize}
@@ -364,9 +364,10 @@ multiplication is carried out.
 
 \section{The matrix approach}
 
-%Show how matrices are stored - ref counting
+% Show how matrices are stored - ref counting
+% TODO: do
 
-\section{Expression reduction}
+\section{Fast expression reduction}
 
 This section describes several data-driven optimisations for reducing the work required to reduce the matrix expression,
 by exploiting patterns.
@@ -396,15 +397,15 @@ effort.
 This results in a multi-pass algorithm. During each iteration, the algorithm scans the expression to find the most 
 frequent adjacent pair of matrices. It then computes the result of their multiplication, and replaces all 
 instances of the pair with the result matrix. This process is repeated until the maximum frequency of a pair reaches a
-specified cutoff threshold.
+specified cutoff threshold. %TODO: include the fast exponentiation in the iteration.
 
 This approach directly mirrors dictionary-based compression algorithms, specifically Byte Pair Encoding (BPE) \cite{GageBPE}.
 BPE iteratively identifies and substitutes the most frequently occurring adjacent symbols in a sequence to minimise 
 data size. This reflects the core principle of entropy coding, which achieves an optimal code by assigning the smallest 
 representational cost (shortest codes) to the most frequent occurrences.
 
-As a consequence, this algorithm is able to effectively exploit the patterns outlined in Section \ref{prep:datasets}.
-Examining the previously identified inner loop in cksum
+As a consequence, this algorithm is able to effectively exploit the loops outlined in Section \ref{prep:datasets}.
+For example, we examine the previously identified inner loop in cksum
 
 $$
 (A B C D E F G)^{65536}
@@ -417,7 +418,7 @@ $$
 (X C D E F G)^{65536}
 $$
 
-After several more passes, the loop body will be reduced to a single matrix, raised to the power of 65536, which can then 
+After several more passes, the loop body will be reduced to a single matrix, raised to the power of 65536, which can 
 be rapidly evaluated using the fast exponentiation approach.
 
 \subsection{Multiple pair encoding}
@@ -433,12 +434,12 @@ frequent pairs, and set them as \textit{candidates} for replacement. Not all cho
 as some may disappear during replacement as they are adjacent to other evaluated pairs.  %TODO: unclear wording
 However, this approach is less accurate and can impact the ability to exploit data patterns.
 
-We again inspect cksum's hot loop. We can unroll the loop body once and lay it out like so
+We again inspect cksum's inner loop. We can unroll the loop body once and lay it out like so
 $$
 (A B C D E F G A B C D E F G)^{32768}
 $$
 
-Choosing to replace 8 pairs ($AB\to H, CD \to I, \dots$), one iteration reduces the expression to
+Choosing to replace 8 pairs, the algorithm maps $AB\to H, CD \to I, \dots$, and the expression is reduced to
 
 $$
 (H I J K L M N)^{32768}
@@ -462,13 +463,11 @@ This preprocessing stage multiplies the matrices of an entire basic block, appen
 caches it for future iterations.
 
 This directly avoids reduction occurring across basic block boundaries, and so brings the performance of the multiple 
-pair encoder in line with the single pair encoder. An additional benefit is the reduction in size of the expression 
+pair encoder closer to the single pair encoder. An additional benefit is the reduction in size of the expression 
 passed to the encoder, which not only improves frequency analysis performance, but reduces memory usage.
 
-However, for loop structures with a basic block period $>1$ (see \verb|factor| in Section \ref{prep:datasets}),
+However, for loop structures with a period $>1$ (for example, \verb|factor| presented in Section \ref{prep:datasets}),
 we can still get reduction happening across the boundaries of the loop body's period.
-
-%TODO: The above is unclear/bad wording
 
 \subsection{Variable pair encoding}
 
@@ -492,18 +491,137 @@ surpasses a fixed percentage of the total expression size.
 We can see how this addresses particular pain points.
 
 \begin{itemize}
-  \item In earlier iterations, repeated patterns such as loops dominate the expression, and so the frequencies of 
-    particular adjacent pairs are very high. The encoder will choose a small number of candidate pairs as their total
-    frequency will exceed the threshold quickly. This avoids replacing enough pairs to reduce across loop boundaries.
+  \item In earlier iterations, loops dominate the expression, and so the frequencies of particular adjacent pairs are
+    very high. The encoder will choose a small number of candidate pairs as their total frequency will exceed the
+    threshold quickly. This avoids replacing enough pairs to reduce across loop boundaries.
   \item In later iterations, the frequencies of adjacent pairs plummets, and so the encoder will choose many more 
     candidate pairs to exceed the threshold. This ensures enough work is done per iteration to offset the cost of the 
     frequency analysis.
-  \item Finally, the optimal fixed percentage parameter varies much less across different datasets, as evidenced in %TODO: EVALUATION
+  \item Finally, the optimal fixed percentage parameter varies much less across different datasets, as evidenced in Section EVALUATION %TODO:
 \end{itemize}
 
-\subsection{Finding loops without frequency analysis}
+\subsection{Finding flat loops without frequency analysis} \label{impl:loop-finder}
 
-\section{Thread-level parallelism}
+While the pair encoding scheme successfully exploits patterns in the data to reduce the total number of multiplications 
+required expression, the frequency analysis performed at each iteration is expensive. Both the multiple and variable
+pair encoding schemes require a $O(n\log n)$ frequency analysis stage, which becomes a bottleneck when processing
+large program traces. 
 
-\section{Accelerator Compute}
+Subhlok and Hammen \cite{PMRepeats} identify loop structures in a trace using an approach derived from 
+Crochemore's algorithm \cite{Crochemore}. While their methods are exhaustive and find all PM-repeats, including
+overlapping and nested sequences, their worst-case complexity remains $O(n\log n)$, offering no asymptotic benefit over
+the encoder approach. Our purposes do not require an exhaustive set of overlapping PM-repeats. Instead, we look for a
+greedy, non-overlapping set of PM-repeats that allows us to easily simplify the trace.
 
+We use a single-pass, greedy $O(n)$ algorithm that identifies and collapses loops using heuristics in
+the program trace without relying on frequency analysis. By inserting this algorithm into the reduction pipeline after
+block preprocessing and before pair encoding, we significantly reduce the size of the expression passed to the pair
+encoding stage, mitigating the $O(n\log n)$ bottleneck.
+
+\begin{lstlisting}[language=C++]
+function simplifyTrace(int[] trace) {
+  int[] simplifiedTrace;
+  Map<int, Stack<int>> history;
+  Map<int[], int> cache;
+
+  int i = 0;
+  while (i < trace.size()) {
+    bool detectedLoop = false;
+
+    /* Iterate through recent occurrences,
+        (most recent first) */
+    for (prevIndex : history[trace[i]]) {
+      int period = i - prevIndex;
+
+      if (period > WINDOW_SIZE) break;
+
+      if (verifyMatch(trace, prevIndex, i, period)) {
+        int iterations = countIterations(trace, i, period);
+        int[] loopBody = trace[prevIndex : i];
+
+        /* Cache and reduce */
+        if (loopBody not in cache) {
+          cache[loopBody] = reduce(loopBody);
+        }
+
+        int result = exponent(cache[loopBody], iterations);
+        simplifiedTrace.append(result);
+
+        /* Jump pointer and reset history to avoid overlap */
+        i = (iterations - 1) * period
+        history.clear();
+        detectedLoop = true;
+        break;
+      }
+    }
+    
+    if (!detectedLoop) {
+      /* Record that we saw this instruction in the trace */
+      history[trace[i]].push(i);
+
+      /* Trim the oldest history */
+      if (history[trace[i]].size() > MAX_HISTORY_SIZE) {
+        history[trace[i]].pop_bottom();
+      }
+
+      simplifiedTrace.append(trace[i]);
+      i++;
+    }
+  }
+
+  return simplifiedTrace;
+}
+\end{lstlisting}
+
+To maintain a linear time performance, the algorithm uses a bounded history buffer that acts as a sliding window.
+When it encounters a previously recorded symbol, in this case a matrix identifier, the algorithm searches backwards 
+through recent history; this prioritises the detection of the smallest loop bodies, satisfying primitivity.
+If a repeated period is confirmed via \verb|verifyMatch|, the algorithm greedily scans forward to find the number of consecutive
+iterations. The loop body is reduced to a single matrix, cached for future identical loops, and exponentiated to replace
+all iterations of the loop. The pointer \verb|i| then advances past the collapsed loop and the history buffer is cleared,
+which prevent the processing of overlapping PM-repeats and hierarchical nesting.
+
+We can also define the helper functions \verb|verifyMatch| and \verb|countIterations|.
+
+\begin{lstlisting}[language=C++]
+\end{lstlisting}
+
+\begin{lstlisting}[language=C++]
+\end{lstlisting}
+
+%TODO: can run algorithm again to get second-nested, but in practice not useful.
+
+\subsection{Final pipeline}
+
+% Load trace
+% process into blocks
+% runLengthEncode to quickly get rid of any simple repeated patterns
+% Find and collapse simple loops
+% Encoding: do { pair Encode; run length encode; } while (pairEncoder has made changes)
+% Tree reduction
+
+\section{Splitting compute responsibility}
+
+% explain that choosing evaluation order and evaluation are two separate and asynchronous tasks
+% Ordering must happen first but evaluation can happen at any time.
+% By splitting the two, the ordering can queue up multiplications which can then be carried out by the evaluation 
+% engine asynchronously, maximising throughput through 
+% We have to track dependencies to multiply in the correct order as the evaluation order forms a tree with the 
+% matrices of the original expression at the leaves.
+
+\section{Scaling up}
+
+% Scaling up CPU-based matrix multiplications
+
+% Scaling up CPU-based encoding stage
+
+% Achknowledge there are other sequential bottlenecks that could potentially be addressed
+% Is multithreaded encoding stage better than loop finding + encoding? As it probably scales better.
+
+\section{Acceleration}
+
+% Using the GPU for matrix multiplications
+
+% GPU Kernel
+
+% Explain GPUs are throughput and not latency, so we have to batch multiplications.
