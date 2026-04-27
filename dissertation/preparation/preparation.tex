@@ -377,20 +377,43 @@ collected by Alexandra Chadwick (\textit{awc32}) using custom tooling.
 
 \subsection{Data properties}
 
+%TODO: Verbatim
+Before exploring the properties of the chosen datasets, we introduce basic terminology for distinguishing various types 
+of repeating patterns \cite{PMRepeats}. Repeating substrings (or \textit{repeats}) in a string can be
+\begin{itemize}
+  \item \textit{tandem} repeats where successive repeat substrings immediately follow each other. They characterise 
+    loops in a program trace.
+  \item \textit{split} repeats where repeat substrings are separated by other symbols. These can characterise repeated 
+    function calls where each call has the same dependency information.
+  \item \textit{overlapping} repeats where repeat substrings overlap.
+\end{itemize}
+
+We can further refine the terminology for tandem repeats. A tandem repeat is \textit{primitive} if it is itself 
+not composed of tandem repeats of another substring. A set of tandem repeats is \textit{maximal} if there is no identical 
+substring immediately preceding or succeeding the sequence of tandem repeats. We refer to primitive and maximal tandem 
+repeats as \textit{PM repeats}, and throughout the project, `loops' will refer to PM-repeats in the execution trace.
+
+Table \ref{tbl:trace-analysis} summarises a trace analysis on the 
+selected datasets, carried out with a tool based on the loop finder in Section \ref{impl:loop-finder}. 
+We define \textbf{Period} as the length of the repeated substring in basic blocks, \textbf{Average Consecutive Iterations (ACI)} as the 
+mean number of times the period of a pattern repeats without interruption, and \textbf{Total Iterations (TI)} as the total number 
+of times the period of a pattern exists in the program trace. \textbf{ACI} and \textbf{TI} correspond to the length of a PM-repeat and 
+the total length of all PM-repeats with the same repeating substring respectively.
+
 \begin{table}[ht]
 \begin{center}
 \begin{tabular}{lcccccc}
   \toprule
-  \textbf{Dataset} & \textbf{Instructions} & \textbf{Basic Blocks} & \multicolumn{4}{c}{\textbf{Biggest Pattern}\protect\footnotemark} \\
+  \textbf{Dataset} & \textbf{Instructions} & \textbf{Basic Blocks} & \multicolumn{4}{c}{\textbf{Biggest Pattern}} \\
   \cmidrule(l){4-7}
-  & (Total) & (Total) & Period\protect\footnotemark & ACI\protect\footnotemark & TI\protect\footnotemark & Coverage\\
+  & (Total) & (Total) & Period & ACI & TI & Coverage\\
   \midrule
-  cksum   & 7526926   & 1068940  & 1 & 65535 & 1048560 & 98.1\% \\
-  cksum32 & -         & -        & - & - & - & - \\
-  factor  & 220632540 & 18074022 & 5 & 20 & 993556 & 27.5\% \\
-  sha1sum & 16994993  & 91070    & 1 & 3 & 49155 & 54.0\% \\
-  sort    & 10943690  & 1216990  & 17 & 2 & 7536 & 10.5\% \\
-  shuf    & 16361747  & 2147424  & 30 & 3 & 16007 & 22.3\% \\
+  cksum   & 7526926   & 1068940  & 1  & 65535 & 1048560  & 98.1\% \\
+  cksum32 & 235132057 & 33580788 & 1  & 65535 & 33553920 & 99.9\% \\
+  factor  & 220632540 & 18074022 & 5  & 20    & 993556   & 27.5\% \\
+  sha1sum & 16994993  & 91070    & 1  & 3     & 49155    & 54.0\% \\
+  sort    & 10943690  & 1216990  & 17 & 2     & 7536     & 10.5\% \\
+  shuf    & 16361747  & 2147424  & 30 & 3     & 16007    & 22.3\% \\
   \bottomrule
 \end{tabular}
 \end{center}
@@ -398,21 +421,16 @@ collected by Alexandra Chadwick (\textit{awc32}) using custom tooling.
 \label{tbl:trace-analysis}
 \end{table}
 
-\footnotetext[1]{Results acquired with an analysis tool based on the loop simplifier in Section IMPLEMENTATION, using a 
-window size of 5000 and a history size of 200. The `biggest' pattern in the program is that which covers the largest number 
-of basic blocks}
-\footnotetext[2]{Period is measured in length of basic blocks and is the length of one iteration of a pattern.}
-\footnotetext[3]{Average Consecutive Iterations: The mean number of times a period of a pattern will repeat without interruption.}
-\footnotetext[4]{Total Iterations: The total number of times a period of a pattern exists in the program trace.}
+The table shows that all datasets
+exhibit a `largest pattern' covering a significant proportion of the trace. This pattern is built of several PM-repeats 
+with the same repeating substring, but separated/split by other symbols. We can deduce that each of the PM-repeats 
+corresponds to an invocation of the same loop, which executes for some varying number of iterations. Each invocation 
+of the loop is separated by other instructions, with their own varying dependency information.
 
-%TODO: Talk about the patterns. What are they, how do they arise, etc.?
-
-As shown in Table \ref{tbl:trace-analysis}, all datasets exhibit a `largest pattern' covering a significant proportion of the trace.
-The datasets additionally have other similarly significant patterns not shown in the table.
-These patterns can be exploited in two ways:
+This pattern can be exploited in two ways:
 
 \begin{enumerate}
-  \item Consecutive repetitions of matrices can be quickly reduced down into a single matrix using a quick exponentiation algorithm.
+  \item Consecutive repetitions of matrices can be quickly reduced down into a single matrix using a fast exponentiation algorithm.
   \item The matrices making up one iteration of the loop can be multiplied together to obtain a singular matrix representing 
     the dependency information for that single iteration. All other iterations of that loop body can then be replaced with 
     the singular result matrix without any extra computation.
