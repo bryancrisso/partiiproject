@@ -584,12 +584,41 @@ which prevent the processing of overlapping PM-repeats and hierarchical nesting.
 We can also define the helper functions \verb|verifyMatch| and \verb|countIterations|.
 
 \begin{lstlisting}[language=C++]
+function verifyMatch(int[] trace, int startA, int startB, int length) {
+  /* Do a quick boundary check and exit if tails don't match */
+  if (startB + length > trace.size()) return false;
+  if (trace[startA + length - 1] != trace[startB + length - 1]) return false;
+
+  /* Verify full sequence */
+  for (k : [0,...,length-2]) {
+    if (trace[startA + k] != trace[startB + k]) {
+      return false;
+    }
+  }
+  return true;
+}
 \end{lstlisting}
+
+This function checks whether two ranges in the original trace are equal.
 
 \begin{lstlisting}[language=C++]
+function countIterations(int[] trace, int currentPos, int period) {
+  int iterations = 2; // Account for original body and first match
+  int scanPos = currentPos + period;
+
+  for (scanPos + period <= trace.size()) {
+    if (verifyMatch(trace, currentPos, scanPos, period)) {
+      iterations++;
+      scanPos += period;
+    } else {
+      break;
+    }
+  }
+  return iterations;
+}
 \end{lstlisting}
 
-%TODO: can run algorithm again to get second-nested, but in practice not useful.
+This function scans ahead to find how many consecutive iterations there are.
 
 \subsection{Final pipeline}
 
