@@ -325,5 +325,110 @@
   doi = {https://doi.org/10.1016/0020-0190(81)90024-7},
   url = {https://www.sciencedirect.com/science/article/pii/0020019081900247},
   author = {Max Crochemore},
-  keywords = {Analysis of algorithm, optimality, partitioning, repetitions in words}
+  keywords = {Analysis of algorithm, optimality, partitioning, repetitions in
+              words},
 }
+
+@article{LamportSC,
+  author = {Lamport, L.},
+  title = {How to Make a Multiprocessor Computer That Correctly Executes
+           Multiprocess Programs},
+  year = {1979},
+  issue_date = {September 1979},
+  publisher = {IEEE Computer Society},
+  address = {USA},
+  volume = {28},
+  number = {9},
+  issn = {0018-9340},
+  url = {https://doi.org/10.1109/TC.1979.1675439},
+  doi = {10.1109/TC.1979.1675439},
+  abstract = {Many large sequential computers execute operations in a different
+              order than is specified by the program. A correct execution is
+              achieved if the results produced are the same as would be produced
+              by executing the program steps in order. For a multiprocessor
+              computer, such a correct execution by each processor does not
+              guarantee the correct execution of the entire program. Additional
+              conditions are given which do guarantee that a computer correctly
+              executes multiprocess programs.},
+  journal = {IEEE Trans. Comput.},
+  month = sep,
+  pages = {690–691},
+  numpages = {2},
+  keywords = {Computer design, concurrent computing, hardware correctness,
+              multiprocessing, parallel processing},
+}
+
+  @article{Linearizability,
+  author = {Herlihy, Maurice P. and Wing, Jeannette M.},
+  title = {Linearizability: a correctness condition for concurrent objects},
+  year = {1990},
+  issue_date = {July 1990},
+  publisher = {Association for Computing Machinery},
+  address = {New York, NY, USA},
+  volume = {12},
+  number = {3},
+  issn = {0164-0925},
+  url = {https://doi.org/10.1145/78969.78972},
+  doi = {10.1145/78969.78972},
+  abstract = {A concurrent object is a data object shared by concurrent
+              processes. Linearizability is a correctness condition for
+              concurrent objects that exploits the semantics of abstract data
+              types. It permits a high degree of concurrency, yet it permits
+              programmers to specify and reason about concurrent objects using
+              known techniques from the sequential domain. Linearizability
+              provides the illusion that each operation applied by concurrent
+              processes takes effect instantaneously at some point between its
+              invocation and its response, implying that the meaning of a
+              concurrent object's operations can be given by pre- and
+              post-conditions. This paper defines linearizability, compares it to
+              other correctness conditions, presents and demonstrates a method
+              for proving the correctness of implementations, and shows how to
+              reason about concurrent objects, given they are linearizable.},
+  journal = {ACM Trans. Program. Lang. Syst.},
+  month = jul,
+  pages = {463–492},
+  numpages = {30},
+}
+
+@inproceedings{ConcurrentDS,
+  title = {Concurrent Data Structures},
+  author = {Mark Moir and Nir Shavit},
+  booktitle = {Handbook of Data Structures and Applications},
+  year = {2004},
+  url = {https://api.semanticscholar.org/CorpusID:277773133},
+}
+
+@inproceedings{MPvsSM,
+  author = "Calciu, Irina and Dice, Dave and Harris, Tim and Herlihy, Maurice
+            and Kogan, Alex and Marathe, Virendra and Moir, Mark",
+  editor = "Baldoni, Roberto and Nisse, Nicolas and van Steen, Maarten",
+  title = "Message Passing or Shared Memory: Evaluating the Delegation
+           Abstraction for Multicores",
+  booktitle = "Principles of Distributed Systems",
+  year = "2013",
+  publisher = "Springer International Publishing",
+  address = "Cham",
+  pages = "83--97",
+  abstract = "Even for small multi-core systems, it has become harder and harder
+              to support a simple shared memory abstraction: processors access
+              some memory regions more quickly than others, a phenomenon called
+              non-uniform memory access (NUMA). These trends have prompted
+              researchers to investigate alternative programming abstractions
+              based on message passing rather than cache-coherent shared memory.
+              To advance a pragmatic understanding of these models' strengths and
+              weaknesses, we have explored a range of different message passing
+              and shared memory designs, for a variety of concurrent data
+              structures, running on different multicore architectures. Our goal
+              was to evaluate which combinations perform best, and where simple
+              software or hardware optimizations might have the most impact. We
+              observe that different approaches perform best in different
+              circumstances, and that the communication overhead of message
+              passing can often outweigh its benefits. Nonetheless, we discuss
+              ways in which this balance may shift in the future. Overall, we
+              conclude that, by emphasizing high-level shared data abstractions,
+              software should be designed to be largely independent of the choice
+              of low-level communication mechanism.",
+  isbn = "978-3-319-03850-6",
+}
+
+

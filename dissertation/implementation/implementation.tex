@@ -484,7 +484,7 @@ pair encoder closer to the single pair encoder. An additional benefit is the red
 passed to the encoder, which not only improves frequency analysis performance, but also reduces memory usage.
 
 However, for loop structures with a period $>1$ (for example, \verb|factor| presented in Section \ref{prep:datasets}),
-we can still get reduction happening across the boundaries of the loop body's period.
+we can still get reduction happening across the boundaries of the loop body.
 
 \subsection{Variable pair encoding}
 
@@ -520,9 +520,9 @@ We can see how this addresses particular pain points.
 \subsection{Finding flat loops without frequency analysis} \label{impl:loop-finder}
 
 While the pair encoding scheme successfully exploits patterns in the data to reduce the total number of multiplications 
-required expression, the frequency analysis performed at each iteration is expensive. Both the multiple and variable
-pair encoding schemes require a $O(n\log n)$ frequency analysis stage, which becomes a bottleneck when processing
-large program traces. 
+required to reduce the expression, the frequency analysis performed at each iteration is expensive. Both the multiple
+and variable pair encoding schemes require a $O(n\log n)$ frequency analysis stage, which becomes a bottleneck when
+processing large program traces. 
 
 Subhlok and Hammen \cite{PMRepeats} identify loop structures in a trace using an approach derived from 
 Crochemore's algorithm \cite{Crochemore}. While their methods are exhaustive and find all PM-repeats, including
@@ -600,6 +600,8 @@ which prevent the processing of overlapping PM-repeats and hierarchical nesting.
 
 We can also define the helper functions \verb|verifyMatch| and \verb|countIterations|.
 
+This function checks whether two ranges in the original trace are equal.
+
 \begin{lstlisting}[language=C++]
 function verifyMatch(int[] trace, int startA, int startB, int length) {
   /* Do a quick boundary check and exit if tails don't match */
@@ -616,7 +618,7 @@ function verifyMatch(int[] trace, int startA, int startB, int length) {
 }
 \end{lstlisting}
 
-This function checks whether two ranges in the original trace are equal.
+This function scans ahead to count all consecutive iterations.
 
 \begin{lstlisting}[language=C++]
 function countIterations(int[] trace, int currentPos, int period) {
@@ -635,9 +637,9 @@ function countIterations(int[] trace, int currentPos, int period) {
 }
 \end{lstlisting}
 
-This function scans ahead to find how many consecutive iterations there are.
+%TODO: Needs some conclusion here?? Talk about combined efficiency. Maybe move some stuff downwards.
 
-\subsection{Final pipeline}
+\subsection{Final single-threaded pipeline}
 
 % Load trace
 % process into blocks
@@ -646,7 +648,58 @@ This function scans ahead to find how many consecutive iterations there are.
 % Encoding: do { pair Encode; run length encode; } while (pairEncoder has made changes)
 % Tree reduction
 
-\section{Splitting compute responsibility} \label{impl:split-compute}
+\section{Parallelisation}
+
+So far, the analysis tool has executed on a single thread. Each component of the pipeline runs sequentially, and when
+a component decides to multiply a pair of matrices, the operation executes synchronously. We have noted the potential 
+for optimisation of the original problem via parallelisation, and so this section describes approaches to parallelising
+the reduction pipeline.
+
+\subsection{Concurrent data structures}
+
+One notable difficulty encountered during the development of concurrent programs is inter-thread communication.
+This communication is either achieved through message passing, which enjoys architectural simplicity and safety, or 
+through shared memory access. Although shared memory access requires more complex synchronisation to prevent data races,
+it generally yields superior performance \cite{MPvsSM}.
+Consequently, we choose shared memory as the communication paradigm for this project.
+
+% TODO: Safety and liveness not necessarily necessary? Could just use "thread-safe" as a description, and 
+% describe the hash map as fine-grained locking and the queue as non-blocking when not empty.
+
+Concurrent data structures are designed for controlling access and modification by multiple threads to shared memory.
+We can describe the theoretical foundations of the data structures through \textit{safety} and \textit{liveness} properties.
+
+Safety properties dictate the correctness of concurrent operations, through ordering guarantees.
+For example, sequential consistency states that the result of any execution is the same as if the operations of all the
+processors were executed in some sequential order, respecting the order specified by the program \cite{LamportSC}.
+Linearizability further constrains this by requiring that every concurrent operation must appear to take effect 
+instantaneously at some single point between the invocation and completion of the operation. This is known as the 
+linearization point \cite{Linearizability}.
+
+Liveness properties describe a system's progress guarantees. They range from blocking synchronisation (which relies
+on mutual exclusion, introducing risks like deadlocks), to other non-blocking guarantees such as lock-free (some thread 
+will make progress if threads keep making steps), and wait-free (a thread finishes its own operation if it keeps making
+steps) \cite{ConcurrentDS}.
+
+For the purposes of our project, we chose to use the concurrent data structures implemented in Intel's oneAPI Threading 
+Building Blocks (TBB) library, specifically employing the \verb|concurrent_hash_map| and \verb|concurrent_bounded_queue|
+data structures.
+
+\verb|concurrent_hash_map| implements a concurrent map interface using fine-grained, bucket-level reader-writer locks.
+Therefore, it operates under blocking synchronisation and provides linearizability for its operations. The lifecycle of 
+locks is managed in the user scope, where \verb|accessor| and \verb|const_accessor| are used to gain exclusive and 
+shared access, respectively, to the data. The blocking nature of accessors introduces the risk of deadlocks when using 
+the map.
+% TODO: why did we need a concurrent map anyways?? To track pending jobs from multiple different threads.
+
+\verb|concurrent_bounded_queue| implements a concurrent queue interface. Its operations are linearizable, being ordered 
+by a wait-free ticket system. We use this queue, as opposed to the regular \verb|concurrent_queue| for its ability to 
+block consumers when the queue is empty. This means that \verb|pop| operations are blocking, but \verb|push| operations 
+are non-blocking, as we never set a maximum capacity for the queue. No user-space lock management is required for this 
+queue, which reduces the risk of deadlock.
+% TODO: why do we use a concurrent queue?? To implement work-sharing, where tasks are distributed to worker threads.
+
+\subsection{Splitting compute responsibility} \label{impl:split-compute}
 
 % explain that choosing evaluation order and evaluation are two separate and asynchronous tasks
 % Ordering must happen first but evaluation can happen at any time.
@@ -655,21 +708,186 @@ This function scans ahead to find how many consecutive iterations there are.
 % We have to track dependencies to multiply in the correct order as the evaluation order forms a tree with the 
 % matrices of the original expression at the leaves.
 
-\section{Scaling up}
+Matrix multiplications are done synchronously in the reduction pipeline. However, we observe that the decision to
+multiply a pair of matrices and the execution of the multiplication are two separate tasks, with the latter dependent
+on the former.
+
+The sequence of these decisions determines an \textit{evaluation order} for the expression, forming a binary tree with
+the original matrices at the leaves.
+Because components select multiplications based only on matrix identifiers (pointers), and not by inspecting the matrix
+data, an evaluation order can be established without having to wait for multiplications to complete.
+When a multiplication is scheduled, we allocate an empty matrix with a pointer to it as its identifier.
+The result is computed asynchronously, and copied back to the empty matrix.
+
+This decouples our program into two primary responsibilities: determining a suitable evaluation order, 
+and subsequently reducing the expression according to the chosen order. This enables an asynchronous approach
+where a primary component finds the evaluation order and queues up multiplications, which are then consumed and
+evaluated by a secondary component.
+
+The first component is largely identical to the original pipeline, except that direct calls to multiply are replaced
+with calls to queue a new multiplication. The second component, however, is more complex, and has to be careful to
+execute queued multiplications while respecting evaluation dependencies.
+More specifically, to perform a multiplication $A\odot B=C$, we must ensure that both $A$ and $B$ are fully evaluated.
+In the context of the binary tree formed by the evaluation order, a parent node cannot be computed 
+until both its children have been computed.
+
+When a multiplication job is queued, it is added to a set of pending jobs. The operands are then inspected, and if both
+are complete, we schedule the job for execution. On the other hand, if either of the operands are still 
+pending, we add the new job to a list of dependents on that operand.
+
+Upon execution of a job, we inspect all the dependents on that job. If both operands of a dependent have been satisfied, 
+it is scheduled for execution.
+
+Jobs are stored as follows: %TODO: scatter explanation?
+
+%TODO: add matrix reference
+\begin{lstlisting}[language=C++]
+/* The Job data structure */
+struct MatrixJob {
+  Matrix* A;
+  Matrix* B;
+  Matrix* C;
+  int unresolvedDeps;
+  Matrix*[] dependents;
+};
+\end{lstlisting}
+
+This is how multiplications are queued:
+
+\begin{lstlisting}[language=C++]
+concurrentMap<Matrix*, MatrixJob> pendingJobs;
+concurrentQueue<MatrixJob> readyJobs;
+
+/* Queueing up a new multiplication */
+function enqueueMultiplication(MatrixJob newJob) {
+  newJob.unresolvedDeps = 2;
+
+  // Lock C to safely insert into the map
+  with WriteLock(pendingJobs[newJob.C]) {
+    pendingJobs[newJob.C] = newJob;
+  }
+
+  // Check Dependency A
+  with WriteLock(pendingJobs[newJob.A]) {
+    if (newJob.A in pendingJobs) {
+      pendingJobs[newJob.A].dependents.append(newJob.C);
+    } else {
+      // A is complete; update C's dependencies
+      with WriteLock(pendingJobs[newJob.C]) {
+        pendingJobs[newJob.C].unresolvedDeps--;
+      }
+    }
+  }
+
+  // Check Dependency B
+  with WriteLock(pendingJobs[newJob.B]) {
+    if (newJob.B in pendingJobs) {
+      pendingJobs[newJob.B].dependents.append(newJob.C);
+    } else {
+      // B is already complete; update C's dependencies
+      with WriteLock(pendingJobs[newJob.C]) {
+        pendingJobs[newJob.C].unresolvedDeps--;
+      }
+    }
+  }
+
+  // Enqueue if dependencies are resolved.
+  with ReadLock(pendingJobs[newJob.C]) {
+    if (pendingJobs[newJob.C].unresolvedDeps == 0) {
+      readyJobs.push(pendingJobs[newJob.C]);
+    }
+  }
+}
+\end{lstlisting}
+
+Once both of its dependencies are resolved, a job is pushed to the ready queue. Once it is pushed off the ready queue,
+the job is evaluated and its dependents resolved like so:
+
+%TODO: intersperse explanation here?
+
+%TODO: remove matrix reference
+\begin{lstlisting}[language=C++]
+concurrentMap<Matrix*, MatrixJob> pendingJobs;
+concurrentQueue<MatrixJob> readyJobs;
+
+/* Executing a multiplication */
+function executeMultiplication(MatrixJob job) {
+  *(job.C) = *(job.A) * *(job.B);
+
+  // Collect dependents to process
+  Matrix*[] depsToProcess;
+  with ReadLock(pendingJobs[job.C]) {
+    depsToProcess = pendingJobs[job.C].dependents;
+  }
+
+  // Process dependents
+  for (Matrix* dep : depsToProcess) {
+    with WriteLock(pendingJobs[dep]) {
+      if (dep in pendingJobs) {
+        pendingJobs[dep].unresolvedDeps--;
+        if (pendingJobs[dep].unresolvedDeps == 0) {
+          readyJobs.push(pendingJobs[dep]);
+        }
+      }
+    }
+  }
+
+  // Remove completed job from map
+  with WriteLock(pendingJobs[job.C]) {
+    pendingJobs.erase(job.C);
+  }
+}
+\end{lstlisting}
+
+The locking of jobs when checking dependencies successfully eliminates data races between different threads enqueuing 
+jobs and resolving dependencies. 
+%TODO: Expand here. discuss fine-grained locking. What overhead is there. Can there be lock contention?
+% Can I expand on how we eliminate data races?
+
+
+\subsection{Scaling up}
+
+\subsubsection{Thread pools}
+
+% Need to talk about thread pool!
+Talk about work sharing. Why is it done (workload split into many identical subtasks).
+How can we do it? Push tasks to a queue, have workers wait on the queue and pop off a task.
+
+Work sharing works best with minimal synchronisation overhead.
+
+Want some pseudocode to show off a generic thread pool.
+
+\subsubsection{Scaling up multiplications}
 
 % Scaling up CPU-based matrix multiplications
+Clearly matrix multiplications are a task easily susceptible to optimisation via work sharing.
+
+No need for pseudocode? CPU kernel already given in previous section.
+
+\subsubsection{Scaling up encoding}
 
 % Scaling up CPU-based encoding stage
+One other stage that can be scaled up is the encoding and reduction stage. 
+This allows us to have each thread work on a smaller chunk of the expression, reducing nlogn overhead from frequency 
+analysis, and multiple reductions ensure that the compute-side is sufficiently saturated with multiplications.
 
-% Achknowledge there are other sequential bottlenecks that could potentially be addressed
-% Is multithreaded encoding stage better than loop finding + encoding? As it probably scales better.
+Talk about the trade-off of efficiency vs speed for splitting the encoder. Encoder works best with global frequency.
+
+Why do we split into more chunks than threads?
+
+No need for pseudocode.
 
 \section{Acceleration}
 
 % Using the GPU for matrix multiplications
+% Explain GPUs are throughput and not latency, so we have to batch multiplications.
 
 % GPU Kernel
 
-% Explain GPUs are throughput and not latency, so we have to batch multiplications.
+talk about using the gpu in parallel with cpu compute to maximise multiplication throughput.
+
+% GPU Handler code
+
+Need to talk about tuning!
 
 \section{Repository overview}
