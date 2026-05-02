@@ -10,7 +10,7 @@ As described in Section \ref{intro:methodology}, classical techniques for
 ILP limit studies rely on sequential algorithms that iterate through a program trace. Inspired by the PerPI tool \cite{perpi},
 the algorithm presented below calculates the longest path through the DDG formulated in Section \ref{prep:register-only-chains}.
 
-For each instruction in the program trace, the algorithm (with pseudocode given in Algorithm \ref{alg:naive-baseline}):
+For each instruction in the program trace, Algorithm \ref{alg:naive-baseline}:
 \begin{enumerate}
   \item  Evaluates static read dependencies to find the maximum dependency chain length ending in a given register.
   \item  Evaluates static write dependencies to propagate this longest chain forwards.
@@ -113,7 +113,7 @@ baseline.
 
 \subsection{Limitations of parallelisation}
 
-Because the algorithm only stores the longest chain ending at each register and discards all others, the \verb|curDeps|
+Because Algorithm \ref{alg:naive-baseline} only stores the longest chain ending at each register and discards all others, the \verb|curDeps|
 array cannot memoise intermediate results for small instruction windows. Instead, all the longest dependency chains
 starting at some register and ending at another have to be encoded in the result, which pushes us towards the matrix
 representation. Propagation of dependencies for all the chains is simply the multiplication of the matrices.
@@ -225,7 +225,7 @@ Apart from the improved cache performance, there are three other optimisations.
 \subsection{Matrix tiling}
 
 One other common method of improving the cache performance of matrix multiplication algorithms is \textit{tiling}.
-Tiling implicitly divides the matrix into smaller square blocks, computing in one tile at a time to 
+Tiling implicitly divides the matrix into smaller square blocks, computing one tile at a time to 
 keep the active working set within the cache. This improves the spatial locality of memory accesses, as elements at the 
 beginning of a row are not evicted by the time we get to the end of the row, which is a problem for large matrices.
 
@@ -242,9 +242,9 @@ In the previous matrix multiplication algorithm, we presented an optimisation th
 This provided a significant speedup to multiplications, and so we may be able to extract further benefits from 
 exploiting matrix sparsity.
 
-First, we analyse the sparsity of all matrices encountered during the expression reduction.
+First, we can analyse the sparsity of all matrices encountered during the expression reduction.
 
-%TODO: Diagram + average nni
+%TODO: Diagram + nni histogram
 \textit{insert diagram here}
 
 This shows that a significant proportion of the matrices we encounter are composed of negative infinity values.
@@ -281,7 +281,7 @@ Is stored as:
 \begin{lstlisting}[frame=none,numbers=none]
 IA = [0, 1, 2,    4, 5]
 JA = [0, 1, 1, 2, 1]
-VA =  [5, 8, 1, 3, 6]
+VA = [5, 8, 1, 3, 6]
 \end{lstlisting}
 
 To extract a row $i$, we define:
@@ -299,12 +299,12 @@ The CSR format saves on memory only when $nni < (m (n - 1) - 1)/2$.
 \subsubsection{Sparse Matrix Multiplication}
 
 Gustavson \cite{gustavson-sparse} proposes an algorithm for multiplying two matrices $A$ and $B$ in CSR format.
-Again, as $B$ is stored in row-wise it is more efficient to traverse it like so, and so the algorithm uses the 
-linear combination formulation presented in Section \ref{impl:traversal-order}.
+Again, as $B$ is stored in row-wise it is more efficient to traverse it similarly, and so Algorithm \ref{alg:Sp-Sp-matrix} 
+uses the linear combination formulation presented in Section \ref{impl:traversal-order}.
 To find the $i$th row of $C$, for each non-negative-infinity value $A_{ik}$, scale the row $B_{k\cdot}$ by $A_{ik}$,
 and add it to the current row of $C$.
 
-The challenge for the sparse representation is adding these sparse rows together efficiently. To do this, Gustavson 
+The challenge for the sparse representation is summing these sparse rows together efficiently. To do this, Gustavson 
 uses a dense accumulator and a `switch' array. The dense accumulator \verb|x| is an array used to sum up values for the
 current row. The switch array \verb|xb| is an array used to track which columns have been touched in the current row
 calculation.
@@ -369,9 +369,9 @@ As shown in Algorthim \ref{alg:Sp-Sp-matrix}, the accumulation is done as follow
 The algorithm requires dynamic allocation for $C$'s structures, as the $nni$ of $C$ is not known until the
 multiplication is carried out.
 
-\section{Setting up the matrix approach}
+\section{Setting up the matrix approach} \label{impl:matrix-approach}
 
-\textit{work required here}
+\textit{work required here} %TODO:
 
 Matrices are stored on the heap. They are managed using basic reference counting. Matrices are static. 
 %TODO: more detail on reference counting
@@ -432,7 +432,7 @@ data size. This reflects the core principle of entropy coding, which achieves an
 representational cost (shortest codes) to the most frequent occurrences.
 
 As a consequence, this algorithm is able to effectively exploit the loops outlined in Section \ref{prep:datasets}.
-For example, we examine the previously identified inner loop in cksum
+For example, we examine the previously identified inner loop (Figure \ref{fig:cksum-deps}) in the cksum trace 
 
 $$
 (A B C D E F G)^{65536}
@@ -463,22 +463,24 @@ We can mitigate the cost by choosing to evaluate many adjacent pairs at an itera
 and so reducing the number of iterations required for this stage. The approach we take is to find the top $N$ most 
 frequent pairs, and set them as \textit{candidates} for replacement. Not all chosen pairs will end up being evaluated, 
 as some may disappear during replacement as they are adjacent to other evaluated pairs.  %TODO: unclear wording
-However, this approach is less accurate and can impact the ability to exploit data patterns.
 
-We again inspect cksum's inner loop. We can unroll the loop body once and lay it out like so
+However, this approach is less accurate and can impact the ability to exploit data patterns. For example,
+we again inspect cksum's inner loop (Figure \ref{fig:cksum-deps}).
+We can unroll the loop body once and lay it out like so:
 $$
 (A B C D E F G A B C D E F G)^{32768}
 $$
 
 Choosing to replace 8 pairs, the algorithm maps $AB\to H, CD \to I, \dots$, and the expression is reduced to
 
+%TODO: maybe put arrows showing AB->H,... etc?
 $$
 (H I J K L M N)^{32768}
 $$
 
 We can repeat this process, unrolling the new loop body again, performing 8 multiplications,
 and halving the size each time. This will require $8 \cdot \log_2(65536) + 6 = 30$ multiplications \textit{and}
-$\log_2(65536) = 16$ frequency analyses.
+$\log_2(65536) = 16$ frequency analyses for a full reduction.
 By contrast, replacing one pair per iteration requires $6+\log_2(65536) = 22$ multiplications, and $6$ frequency analyses.
 This is because the reduction happens within the boundaries of the loop body, and reduces it to one matrix, 
 allowing our fast exponentiation algorithm to work.
@@ -528,10 +530,12 @@ We can see how this addresses particular pain points.
   \item In later iterations, the frequencies of adjacent pairs plummets, and so the encoder will choose many more 
     candidate pairs to exceed the threshold. This ensures enough work is done per iteration to offset the cost of the 
     frequency analysis.
-  \item Finally, the optimal fixed percentage parameter varies much less across different datasets, as evidenced in Section EVALUATION %TODO:
+  \item Finally, the optimal fixed percentage parameter varies much less across different datasets, as evidenced in Section %TODO:eval
 \end{itemize}
 
 \subsection{Finding flat loops without frequency analysis} \label{impl:loop-finder}
+
+%TODO: float and rethink pseudocode
 
 While the pair encoding scheme successfully exploits patterns in the data to reduce the total number of multiplications 
 required to reduce the expression, the frequency analysis performed at each iteration is expensive. Both the multiple
@@ -655,8 +659,6 @@ function countIterations(int[] trace, int currentPos, int period) {
 }
 \end{lstlisting}
 
-%TODO: Needs some conclusion here?? Talk about combined efficiency. Maybe move some stuff downwards.
-
 \subsection{Final single-threaded pipeline}
 
 % Load trace
@@ -749,17 +751,14 @@ More specifically, to perform a multiplication $A\odot B=C$, we must ensure that
 In the context of the binary tree formed by the evaluation order, a parent node cannot be computed 
 until both its children have been computed.
 
-When a multiplication job is queued, it is added to a set of pending jobs. The operands are then inspected, and if both
-are complete, we schedule the job for execution. On the other hand, if either of the operands are still 
-pending, we add the new job to a list of dependents on that operand.
+We can encapsulate a multiplication operation and all relevant dependencies with the data structure defined in 
+Figure \ref{fig:mat-job-struct}. All the jobs generated during the analysis will implicitly define the 
+evaluation order.
 
-Upon execution of a job, we inspect all the dependents on that job. If both operands of a dependent have been satisfied, 
-it is scheduled for execution.
-
-Jobs are stored as follows: %TODO: scatter explanation?
-
-%TODO: add matrix reference
-\begin{lstlisting}[language=C++]
+\begin{figure}[htbp]
+  \centering
+  \begin{minipage}{0.4\textwidth} % Adjust width to fit your code
+    \begin{lstlisting}[numbers=none, frame=none, language=C++]
 struct MatrixJob {
   Matrix* A;
   Matrix* B;
@@ -767,12 +766,19 @@ struct MatrixJob {
   int unresolvedDeps;
   Matrix*[] dependents;
 };
-\end{lstlisting}
+    \end{lstlisting}
+  \end{minipage}
+  \caption{Multiplication and dependency tracking}
+  \label{fig:mat-job-struct}
+\end{figure}
 
-This is how multiplications are queued:
+Algorithm \ref{alg:queue-mults} describes the queueing of multiplication jobs.
+Queued jobs are added to a set of pending jobs. The operands are then inspected, and if both
+are complete, we schedule the job for execution. On the other hand, if either of the operands are still 
+pending, we add the new job to a list of dependents on that operand.
 
-
-\begin{lstlisting}[language=C++]
+\begin{algfloat}[htbp]
+\begin{lstlisting}[language=C++, caption={Queueing Logic}, label={alg:queue}]
 concurrentMap<Matrix*, MatrixJob> pendingJobs;
 concurrentQueue<MatrixJob> readyJobs;
 
@@ -780,7 +786,7 @@ concurrentQueue<MatrixJob> readyJobs;
 function enqueueMultiplication(MatrixJob newJob) {
   newJob.unresolvedDeps = 2;
 
-  // Lock C to safely insert into the map
+  // Safely insert C into the map
   with WriteLock(pendingJobs[newJob.C]) {
     pendingJobs[newJob.C] = newJob;
   }
@@ -797,7 +803,7 @@ function enqueueMultiplication(MatrixJob newJob) {
 }
 \end{lstlisting}
 
-\begin{lstlisting}[language=C++]
+\begin{lstlisting}[language=C++, caption={Dependency Processing}, label={alg:deps1}]
 function checkDependency(Matrix* dependency, Matrix* dependent) {
   with WriteLock(pendingJobs[dependency]) {
     if (dependency in pendingJobs) {
@@ -811,11 +817,13 @@ function checkDependency(Matrix* dependency, Matrix* dependent) {
   }
 }
 \end{lstlisting}
+\caption{Matrix queueing and dependency management logic.}
+\label{alg:queue-mults}
+\end{algfloat}
 
-Once both of its dependencies are resolved, a job is pushed to the ready queue. Once it is pushed off the ready queue,
-the job is evaluated and its dependents resolved like so:
-
-%TODO: intersperse explanation here?
+Once both of its dependencies are resolved, a job is pushed to the ready queue, waiting to be executed.
+Upon execution of a job (as shown in Algorithm \ref{alg:async-mults}), we inspect
+the job's dependents. If both operands of a dependent have been satisfied, it is scheduled for execution.
 
 \begin{algfloat}[htbp]
     \centering
@@ -834,7 +842,7 @@ void executeMultiplication(MatrixJob job) {
 
     \vspace{1em} % Adds a small gap between the two listings
 
-    \begin{lstlisting}[language=C++, caption={Dependency Processing}, label={alg:deps}]
+    \begin{lstlisting}[language=C++, caption={Dependency Processing}, label={alg:deps2}]
 void processDependents(Matrix* dependency) {
     Matrix*[] deps;
     with ReadLock(pendingJobs[dependency]) {
@@ -856,7 +864,6 @@ void processDependents(Matrix* dependency) {
     \label{alg:async-mults}
 \end{algfloat}
 
-
 The locking of jobs when checking dependencies successfully eliminates data races between different threads enqueuing 
 jobs and resolving dependencies. 
 %TODO: Expand here. discuss fine-grained locking. What overhead is there. Can there be lock contention?
@@ -864,9 +871,9 @@ jobs and resolving dependencies.
 
 \subsection{Work-sharing}
 
-Work sharing distributes large computational tasks across many several processor cores, maximising efficiency. We can 
-chunk our workload into many identical subtasks, and by using many threads to process the subtasks, increase the 
-processing throughput when compared to a single thread.
+Work sharing distributes large computational tasks across several processor cores, maximising efficiency. By chunking
+our workload into many identical subtasks, and using many threads to process the subtasks, we can increase throughput
+when compared to a single thread.
 
 A thread pool is a collection of pre-initialised `worker' threads that stand ready to perform tasks. Instead of creating 
 a new thread every time a task is to be completed, a program will submit the task to a queue. An idle thread from the 
@@ -881,19 +888,21 @@ A thread pool is assigned a `kernel', which is a function that each thread appli
 \subsubsection{Multiplication scaling} \label{impl:mult-scaling}
 
 The work on pipelined matrix multiplications described in Section \ref{impl:split-compute}
-can be easily parallelised using a thread pool. Once a multiplication job is ready be executed it can be scheduled by 
+can be easily parallelised using a thread pool. Once a multiplication job is ready to be executed it can be scheduled by 
 pushing it to the thread pool's task queue. By choosing Algorithm \ref{alg:async-mults}
 as the pool's kernel, multiple threads asynchronously process the evaluation order generated by the simplifier pipeline 
 stage.
 
-Increasing the thread count can lead to contention and overhead, as each thread has to access the shared \verb|pendingJobs| 
-map. This map uses bucket-level reader-writer locks (as described in section \ref{impl:data-structs}),
+Increasing the thread count can lead to contention, as each thread has to access the shared \verb|pendingJobs| 
+map when processing dependencies. This map uses bucket-level reader-writer locks (as described in section \ref{impl:data-structs}),
 and so two threads may try to exclusively access the same bucket, preventing them from simultaneously making progress.
 The impact of this is evaluated in Section %TODO: eval
 
 \subsubsection{Encoding scaling} \label{impl:enc-scaling}
 
-Additionally, the work done by encoding and reduction stages can also be distributed amongst several threads. 
+Additionally, the work done by the encoding and final reduction stages
+(Sections \ref{impl:pair-encoding}and \ref{impl:matrix-approach})
+can also be distributed amongst several threads. 
 The expression is split into several chunks, and each chunk is reduced to a single matrix through a local application
 of the encoding and reduction stages by a thread. Once all chunks have been reduced by the thread pool, the final 
 expression built from the resulting matrices is evaluated. By parallelising and speeding up the evaluation order
@@ -901,18 +910,22 @@ discovery, we can keep the matrix multiplication thread pool saturated.
 
 While it may seem reasonable to split the expression into as many equal-sized chunks as there are threads, equal-sized 
 chunks are not equally easy to reduce. Some chunks can exhibit highly exploitable patterns, such as very frequent matrix 
-pairs, which allows for quick encoding into a smaller expression. Other chunks may not have such properties, and as a 
-result, take longer to process. If we assigned each thread just one chunk, threads with easier chunks would have to wait
-idly for the more difficult workloads to catch up. By further dividing the expression, threads that reduce a task quickly 
+pairs, which allows for quick encoding into a smaller expression. Other chunks may not have such patterns, and consequently
+take longer to process. If we assigned each thread just one chunk, threads with easier chunks would wait idly for the
+more difficult workloads to catch up. By further dividing the expression, threads that reduce a chunk quickly 
 have more chunks available to process while slower threads catch up, equalising the amount of work done by each thread.
 
-However, performing local frequency analysis on smaller chunks of the equation reduces the overall efficiency of the 
+%TODO: show off single-chunk asymmetry?
+
+However, performing local frequency analysis on smaller chunks of the expression reduces the overall efficiency of the 
 encoding stage. The BPE-adjacent approach performs best with global frequency values, as the frequency distribution
 within a single chunk may not reflect the frequency distribution of the whole expression. This often leads to a 
-worse evaluation order, requiring more multiplications, but we hope to offset this extra work by utilising more compute.
-The impact of efficiency is evaluated in Section %TODO: eval
+worse evaluation order within each chunk, requiring more multiplications to reduce the expression as a whole, but we
+hope to offset this extra work by utilising more compute. The impact on efficiency is explored in Section %TODO: eval
 
 \subsubsection{Final parallel pipeline}
+
+%TODO: pipeline diagram here
 
 \section{Accelerator-level parallelism}
 
