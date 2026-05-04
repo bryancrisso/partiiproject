@@ -1,0 +1,45 @@
+\begin{tikzpicture}[
+    node distance=1cm and 1cm,
+    % Define the block style
+    block/.style={
+        rectangle, 
+        rounded corners=5pt, 
+        draw=black, 
+        very thick,
+        minimum width=3.5cm, 
+        minimum height=1.5cm, 
+        align=center,
+        font=\sffamily
+    },
+    % Arrow style
+    arrow/.style={-{Stealth[scale=1.2]}, thick}
+]
+
+    % 1. Create the Encoding group first (the anchor)
+    \node[block, fill=green!20] (n4) {Run-length encode};
+    \node[block, fill=orange!20, right=0.8cm of n4] (n5) {Pair encode};
+    
+    \begin{scope}[on background layer]
+        \node[draw=black, dashed, thick, inner sep=15pt, rounded corners=10pt, fit=(n4) (n5)] (encoding) {};
+        \node[anchor=south west, font=\sffamily] at (encoding.north west) {Encoding};
+    \end{scope}
+
+    % 2. Build the top stack (aligns to the center of 'encoding')
+    \node[block, fill=yellow!20, above=1.5cm of encoding] (n3) {Fast loop finding};
+    \node[block, fill=green!20, above=of n3] (n2) {Run-length encode};
+    \node[block, fill=blue!20, above=of n2] (n1) {Load Trace\\and Process into\\blocks};
+
+    % 3. Build the bottom node
+    \node[block, fill=purple!20, below=1.5cm of encoding] (n6) {Tree reduction to\\final dependency\\matrix};
+
+    % 4. Add Arrows
+    \draw[arrow] (n1) -- (n2);
+    \draw[arrow] (n2) -- (n3);
+    \draw[arrow] (n3) -- (encoding.north);
+    \draw[arrow] (encoding.south) -- (n6);
+    
+    % Encoding internal arrows
+    \draw[arrow] ([yshift=3pt]n4.east) -- ([yshift=3pt]n5.west);
+    \draw[arrow] ([yshift=-3pt]n5.west) -- ([yshift=-3pt]n4.east);
+
+\end{tikzpicture}

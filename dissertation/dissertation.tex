@@ -31,6 +31,7 @@
 \usepackage{booktabs} % For \toprule, \midrule, \bottomrule
 \usepackage{ragged2e} % For better text alignment in narrow columns
 \usepackage{caption}
+\usepackage{placeins}
 
 \captionsetup{justification=centering, singlelinecheck=false}
 
@@ -41,7 +42,7 @@
 % Define a custom column type for left-aligned wrapping
 \newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
 
-\usetikzlibrary{positioning, quotes, arrows.meta, calc, matrix}
+\usetikzlibrary{positioning, quotes, arrows.meta, calc, matrix, fit, backgrounds}
 
 \tikzset{
     deparrow/.style={

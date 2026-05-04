@@ -548,40 +548,34 @@ overlapping and nested sequences, their worst-case complexity remains $O(n\log n
 the encoder approach. Our purposes do not require an exhaustive set of overlapping PM-repeats. Instead, we look for a
 greedy, non-overlapping set of PM-repeats that allows us to easily simplify the trace.
 
-We use a single-pass, greedy $O(n)$ algorithm that identifies and collapses loops using heuristics in
-the program trace without relying on frequency analysis. By inserting this algorithm into the reduction pipeline after
-block preprocessing and before pair encoding, we significantly reduce the size of the expression passed to the pair
-encoding stage, mitigating the $O(n\log n)$ bottleneck.
+Algorithm \ref{alg:fast-loop-finder} is a single-pass, greedy $O(n)$ algorithm 
+that identifies and collapses loops using heuristics in the program trace without relying on frequency analysis.
+By inserting this algorithm into the reduction pipeline after block preprocessing and before pair encoding, we
+significantly reduce the size of the expression passed to the pair encoding stage, mitigating the $O(n\log n)$ bottleneck.
 
 \begin{algfloat}[ht]
 \begin{lstlisting}[language=C++]
 function simplifyTrace(int[] trace) {
   int[] simplifiedTrace;
-  Map<int, Stack<int>> history;
+  Map<int, Stack<int>(maxSize=MAX_HISTORY_SIZE)> history;
   Map<int[], int> cache;
 
   int i = 0;
   while (i < trace.size()) {
     bool detectedLoop = false;
 
-    /* Iterate through recent occurrences,
-        (most recent first) */
+    /* Iterate through recent occurrences backwards */
     for (prevIndex : history[trace[i]]) {
       int period = i - prevIndex;
-
       if (period > WINDOW_SIZE) break;
 
       if (verifyMatch(trace, prevIndex, i, period)) {
         int iterations = countIterations(trace, i, period);
         int[] loopBody = trace[prevIndex : i];
 
-        /* Cache and reduce */
-        if (loopBody not in cache) {
-          cache[loopBody] = reduce(loopBody);
-        }
-
-        int result = exponent(cache[loopBody], iterations);
-        simplifiedTrace.append(result);
+        /* Reduce and cache */
+        cache[loopBody] = reduce(loopBody);
+        simplifiedTrace.append(exponent(cache[loopBody], iterations));
 
         /* Jump pointer and reset history to avoid overlap */
         i = (iterations - 1) * period
@@ -594,12 +588,6 @@ function simplifyTrace(int[] trace) {
     if (!detectedLoop) {
       /* Record that we saw this instruction in the trace */
       history[trace[i]].push(i);
-
-      /* Trim the oldest history */
-      if (history[trace[i]].size() > MAX_HISTORY_SIZE) {
-        history[trace[i]].pop_bottom();
-      }
-
       simplifiedTrace.append(trace[i]);
       i++;
     }
@@ -612,7 +600,8 @@ function simplifyTrace(int[] trace) {
 \label{alg:fast-loop-finder}
 \end{algfloat}
 
-To maintain a linear time performance, the algorithm uses a bounded history buffer that acts as a sliding window.
+To maintain a linear time performance, Algorithm \ref{alg:fast-loop-finder}
+uses a bounded history buffer that acts as a sliding window.
 When it encounters a previously recorded symbol, in this case a matrix pointer, the algorithm searches backwards 
 through recent history; this prioritises the detection of the smallest loop bodies, satisfying primitivity.
 If a repeated period is confirmed via \verb|verifyMatch|, the algorithm greedily scans forward to find the number of consecutive
@@ -620,11 +609,10 @@ iterations. The loop body is reduced to a single matrix, cached for future ident
 all iterations of the loop. The pointer \verb|i| then advances past the collapsed loop and the history buffer is cleared,
 which prevent the processing of overlapping PM-repeats and hierarchical nesting.
 
-We can also define the helper functions \verb|verifyMatch| and \verb|countIterations|.
+We also define the helper functions \verb|verifyMatch| and \verb|countIterations| in Algorithm \ref{alg:fast-loop-helper}.
 
-This function checks whether two ranges in the original trace are equal.
-
-\begin{lstlisting}[language=C++]
+\begin{algfloat}[htbp]
+\begin{lstlisting}[language=C++, caption={Verifying trace ranges match}, label={alg:verify}]
 function verifyMatch(int[] trace, int startA, int startB, int length) {
   /* Do a quick boundary check and exit if tails don't match */
   if (startB + length > trace.size()) return false;
@@ -640,9 +628,7 @@ function verifyMatch(int[] trace, int startA, int startB, int length) {
 }
 \end{lstlisting}
 
-This function scans ahead to count all consecutive iterations.
-
-\begin{lstlisting}[language=C++]
+\begin{lstlisting}[language=C++, caption={Greedily finding all iterations}, label={alg:iterate}]
 function countIterations(int[] trace, int currentPos, int period) {
   int iterations = 2; // Account for original body and first match
   int scanPos = currentPos + period;
@@ -658,7 +644,11 @@ function countIterations(int[] trace, int currentPos, int period) {
   return iterations;
 }
 \end{lstlisting}
+\caption{Helper functions for the fast loop finder.}
+\label{alg:fast-loop-helper}
+\end{algfloat}
 
+\FloatBarrier
 \subsection{Final single-threaded pipeline}
 
 % Load trace
@@ -667,6 +657,15 @@ function countIterations(int[] trace, int currentPos, int period) {
 % Find and collapse simple loops
 % Encoding: do { pair Encode; run length encode; } while (pairEncoder has made changes)
 % Tree reduction
+
+\begin{figure}[H] % [htbp] helps LaTeX decide where to place the image
+\centering % This command centers the contents of the figure
+
+\input{diagrams/single-pipeline.tex}
+
+\caption{Final single-threaded pipeline}
+\label{fig:single-threaded-pipeline}
+\end{figure}
 
 \section{Parallelisation}
 
@@ -869,6 +868,7 @@ jobs and resolving dependencies.
 %TODO: Expand here. discuss fine-grained locking. What overhead is there. Can there be lock contention?
 % Can I expand on how we eliminate data races?
 
+\FloatBarrier
 \subsection{Work-sharing}
 
 Work sharing distributes large computational tasks across several processor cores, maximising efficiency. By chunking
@@ -925,19 +925,45 @@ hope to offset this extra work by utilising more compute. The impact on efficien
 
 \subsubsection{Final parallel pipeline}
 
-%TODO: pipeline diagram here
+\begin{figure}[H] 
+\centering 
+\input{diagrams/parallel-pipeline}
+\caption{Final parallel pipeline}
+\label{fig:multi-threaded-pipeline}
+\end{figure}
+\FloatBarrier
 
 \section{Accelerator-level parallelism}
 
 % Using the GPU for matrix multiplications
+
+Graphical Processing Units (GPUs) are accelerator chips specialised for high-throughput computing.
+While a CPU has a handful of powerful, generalised cores, which can perform complex sequential tasks, 
+a GPU possesses thousands of small, specialised cores, which excel at performing thousands of independent tasks 
+simultaneously, commonly accelerating operations like matrix multiplication.
+
+This section describes the approach taken to use a GPU to perform the matrix multiplications required to reduce the 
+expression.
+
 % Explain GPUs are throughput and not latency, so we have to batch multiplications.
 
-% GPU Kernel
+Dedicated GPUs live on a separate chip to the CPU, and have their own main memory. Data to be processed by the GPU 
+is sent across a bus (PCIe?), and while this bus typically has a huge bandwidth, it also has high latency. This influences 
+how workloads are assigned to the GPU, with tasks being collected into large batches before being sent to the GPU.
+This amortises the latency overhead of the bus and allows for full use of its bandwidth, and also allows all of the GPU 
+cores to be utilised.
 
-talk about using the gpu in parallel with cpu compute to maximise multiplication throughput.
+% GPU Kernel need to explain what thread blocks are lol
+
+GPUs execute programs called kernels. A GPU implements general matrix multiplication by partitioning the output matrix 
+into tiles, which are then assigned to thread blocks.
+
+% GPU handler and dispatcher design
+
+% talk about using the gpu in parallel with cpu compute to maximise multiplication throughput.
 
 % GPU Handler code
 
-Need to talk about tuning!
+% Need to talk about tuning!
 
 \section{Repository overview}
