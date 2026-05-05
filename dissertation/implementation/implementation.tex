@@ -244,10 +244,15 @@ exploiting matrix sparsity.
 
 First, we can analyse the sparsity of all matrices encountered during the expression reduction.
 
-%TODO: Diagram + nni histogram
-\textit{insert diagram here}
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/matrix_sparsity.png}
+  \caption{Histogram showing sparsity of all matrices computed while reducing the {\texttt {factor}} trace.}
+  \label{fig:matrix-sparsity}
+\end{figure}
 
-This shows that a significant proportion of the matrices we encounter are composed of negative infinity values.
+Figure \ref{fig:matrix-sparsity} 
+shows that a significant proportion of the matrices we encounter are composed of negative infinity values.
 Omitting these values from storage significantly reduces memory consumption.
 
 \subsubsection{CSR Matrix Format}
@@ -731,6 +736,7 @@ Matrix multiplications are done synchronously in the reduction pipeline. However
 multiply a pair of matrices and the execution of the multiplication are two separate tasks, with the latter dependent
 on the former.
 
+%TODO: Not necessarily a binary tree if we are not storing duplicates!
 The sequence of these decisions determines an \textit{evaluation order} for the expression, forming a binary tree with
 the original matrices at the leaves.
 Because components select multiplications based only on matrix identifiers (pointers), and not by inspecting the matrix
@@ -881,9 +887,9 @@ pool then picks up the task, executes it, and instead of dying, returns to the p
 avoids the overhead associated with creating and destroying threads, improves response times to incoming tasks, and 
 allows us to easily limit the number of threads spawned.
 
-Sections \ref{impl:mult-scaling} and \ref{impl:enc-scaling}
-present two applications of work-sharing to the analysis tool, both making use of a generic thread-pool implementation.
-A thread pool is assigned a `kernel', which is a function that each thread applies to a task from the queue.
+The next two sections present two applications of work-sharing to the analysis tool, both making use of a generic
+thread-pool implementation. A thread pool is assigned a `kernel', which is a function that each thread applies to a
+task from the queue.
 
 \subsubsection{Multiplication scaling} \label{impl:mult-scaling}
 
