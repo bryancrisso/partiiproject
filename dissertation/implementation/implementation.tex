@@ -118,7 +118,7 @@ array cannot memoise intermediate results for small instruction windows. Instead
 starting at some register and ending at another have to be encoded in the result, which pushes us towards the matrix
 representation. Propagation of dependencies for all the chains is simply the multiplication of the matrices.
 
-\section{Matrix Multiplications}
+\section{Matrix Multiplications} \label{impl:matrices}
 
 This section details several approaches to representing and multiplying matrices together on the CPU.
 
@@ -246,7 +246,7 @@ First, we can analyse the sparsity of all matrices encountered during the expres
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.8\textwidth]{graphs/matrix_sparsity.png}
+  \includegraphics[width=0.8\textwidth]{graphs/factor_matrix_sparsity.png}
   \caption{Histogram showing sparsity of all matrices computed while reducing the {\texttt {factor}} trace.}
   \label{fig:matrix-sparsity}
 \end{figure}
@@ -415,7 +415,7 @@ approach. At each pass, adjacent matrices are multiplied together, and this is r
 This allows for multiplications to be batched, which will be useful when delegating computation
 (see Section \ref{impl:split-compute}).
 
-\section{Fast expression reduction}
+\section{Fast expression reduction} \label{impl:fast-expr}
 
 This section describes several data-driven optimisations for reducing the work required to reduce the matrix expression,
 by exploiting patterns in the data.
@@ -523,7 +523,7 @@ passed to the encoder, which not only improves frequency analysis performance, b
 However, for loop structures with a period $>1$ (for example, \verb|factor| presented in Section \ref{prep:datasets}),
 we can still get reduction happening across the boundaries of the loop body.
 
-\subsection{Variable pair encoding}
+\subsection{Variable pair encoding} \label{impl:variable-encoder}
 
 This variant of the pair encoding scheme attempts to resolve two issues with the multiple pair encoder, while avoiding 
 the poor performance of the single pair encoder in later iterations of the encoding phase.
