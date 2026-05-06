@@ -222,7 +222,7 @@ Apart from the improved cache performance, there are three other optimisations.
     the number of elements processed per iteration.
 \end{description}
 
-\subsection{Matrix tiling}
+\subsection{Matrix tiling} \label{impl:cpu-tiling}
 
 One other common method of improving the cache performance of matrix multiplication algorithms is \textit{tiling}.
 Tiling implicitly divides the matrix into smaller square blocks, computing one tile at a time to 
@@ -376,33 +376,49 @@ multiplication is carried out.
 
 \section{Setting up the matrix approach} \label{impl:matrix-approach}
 
-\textit{work required here} %TODO:
+Having explored matrix multiplications in the previous section, we need an efficient representation and reduction strategy
+for the entire expression for the implementation's core. This section details memory management, deterministic matrix 
+identification, and a basic reduction strategy. 
 
-Matrices are stored on the heap. They are managed using basic reference counting. Matrices are static. 
-%TODO: more detail on reference counting
+The `matrix expression' is formed using pointers to the matrix objects on the heap.
+Because a matrix holding the static dependency information of an instruction may be referenced multiple times 
+within the program trace, we employ a reference counting mechanism and a pool of `free' and `used' matrices, to manage 
+the lifecycle of matrices efficiently.
 
-The `matrix expression' is formed using pointers to the matrix objects on the heap. This allows for easy identification
---- a matrix representing the static dependencies of an instruction can be referenced multiple times from the expression,
-once for each time the instruction appears in the program trace.
+\begin{description}
+  \item [Initialisation:] When a matrix is first created, its reference count is set to one. The memory for the matrix 
+    is pulled from a pool of existing free matrix objects, or is newly allocated if no memory is available.
+  \item [Expression building:] Each time a pointer to a matrix is added to the expression, its reference count is 
+    incremented.
+  \item [Expression reduction:] Each time a pointer to a matrix is removed from the expression, its reference count is 
+    decremented. If the count reaches zero, the matrix's memory is marked as free and waits to be reused.
+\end{description}
 
-The equality of two matrices in the expression can be quickly checked by comparing their pointers.
-However, in Section \ref{impl:pair-encoding}, matrix pointers will be used as a tie breaker 
-when comparing the frequency of pairs of different matrices. Due to the non-determinism of memory allocations, the
-result of pointer comparisons will vary from one execution to execution, leading to a slightly different execution order.
-To force a deterministic execution, we can assign a monotonically increasing id to a matrix upon its creation, and
-compare matrix ids to tie-break.
+This approach ensures that static matrices, which may appear millions of times in a long execution trace, are only stored 
+once in memory. 
 
-To reduce the expression without exploiting any patterns in the data, we can use a multi-pass tree-reduction approach.
-At each pass, adjacent matrices are multiplied together, and this is repeated until only one matrix is left.
-This allows for multiplications to be batched, which will be useful in Section \ref{impl:split-compute}.
+The identity of two matrices in the expression can be quickly checked by comparing their pointers.
+However, while this is efficient for identity checks when memoising, it can introduce non-determinism.
+In Section \ref{impl:pair-encoding}, matrix pointers are used as a tie breaker 
+when comparing the frequency of pairs. Due to the non-determinism of the OS memory allocator and Address Space Layout
+Randomisation (ASLR), pointer-based tie-breaks result in different evaluation orders across separate runs.
+To guarantee reproducibility, each matrix is assigned a monotonically increasing ID upon its creation, and
+these unique IDs are compared to tie-break.
 
-Memoisation of matrix results is simple, and can be done with a mapping from pairs of matrix pointers to a single matrix 
-pointer, to encode $A\odot B = C$.
+To avoid redundant computations, we implement a memoisation table. This table maps a pair of matrix pointers $P_A, P_B$
+to a result matrix pointer $P_C$, representing the operation $A\odot B = C$. Before performing a multiplication, the 
+system queries this map. If a hit is found, the reference count of $P_C$ is incremented, and the multiplication operation 
+skipped.
+
+To reduce the expression to the final matrix without exploiting data patterns, we can use a multi-pass tree-reduction
+approach. At each pass, adjacent matrices are multiplied together, and this is repeated until only one matrix is left.
+This allows for multiplications to be batched, which will be useful when delegating computation
+(see Section \ref{impl:split-compute}).
 
 \section{Fast expression reduction}
 
 This section describes several data-driven optimisations for reducing the work required to reduce the matrix expression,
-by exploiting patterns.
+by exploiting patterns in the data.
 
 \subsection{Fast exponentiation}
 
@@ -907,7 +923,7 @@ The impact of this is evaluated in Section %TODO: eval
 \subsubsection{Encoding scaling} \label{impl:enc-scaling}
 
 Additionally, the work done by the encoding and final reduction stages
-(Sections \ref{impl:pair-encoding}and \ref{impl:matrix-approach})
+(Sections \ref{impl:pair-encoding} and \ref{impl:matrix-approach})
 can also be distributed amongst several threads. 
 The expression is split into several chunks, and each chunk is reduced to a single matrix through a local application
 of the encoding and reduction stages by a thread. Once all chunks have been reduced by the thread pool, the final 
@@ -944,32 +960,177 @@ hope to offset this extra work by utilising more compute. The impact on efficien
 % Using the GPU for matrix multiplications
 
 Graphical Processing Units (GPUs) are accelerator chips specialised for high-throughput computing.
-While a CPU has a handful of powerful, generalised cores, which can perform complex sequential tasks, 
-a GPU possesses thousands of small, specialised cores, which excel at performing thousands of independent tasks 
-simultaneously, commonly accelerating operations like matrix multiplication.
+While a CPU features a handful of powerful, generalised cores, optimised for complex sequential tasks, 
+a GPU possesses thousands of simpler, specialised cores, which excel at performing thousands of independent tasks 
+simultaneously. This architecture, known as Single-Instruction, Multiple-Threads (SIMT) \cite{flynntaxonomy}
+is effective at accelerating highly data-parallel operations like matrix multiplication.
 
-This section describes the approach taken to use a GPU to perform the matrix multiplications required to reduce the 
-expression.
+OpenCL was used in this project for GPU acceleration to allow for cross-platform portability across both integrated and
+discrete graphics hardware.
+
+To execute code on the GPU, a CPU (the \textit{Host}) enqueues a \textit{kernel} program to the GPU (the \textit{Device}).
+In OpenCL, the number of threads executing this kernel is known as the \textit{NDRange} (N-Dimensional range).
+\textit{Work-items} are the individual threads executing the kernel. They are grouped into \textit{work-groups} (analogous
+to CUDA thread blocks), allowing them to synchronise and share memory.
+
+The GPU features a multi-tier memory hierarchy, with two main levels.
+\begin{description}
+  \item[Global memory:] The GPU's main memory. It is large, but suffers from high latency and low bandwidth if not
+    accessed carefully.
+  \item[Local memory:] A small, fast cache shared exclusively among work-items in the same work-group.
+\end{description}
 
 % Explain GPUs are throughput and not latency, so we have to batch multiplications.
 
-Dedicated GPUs live on a separate chip to the CPU, and have their own main memory. Data to be processed by the GPU 
-is sent across a bus (PCIe?), and while this bus typically has a huge bandwidth, it also has high latency. This influences 
-how workloads are assigned to the GPU, with tasks being collected into large batches before being sent to the GPU.
-This amortises the latency overhead of the bus and allows for full use of its bandwidth, and also allows all of the GPU 
-cores to be utilised.
+Dedicated GPUs are physically separated from the host, and so data is sent across a bus (typically PCIe).
+While this bus is high bandwidth, it also has high latency. This influences how workloads are assigned to the
+GPU, with tasks being collected into large batches before being sent over.
+This amortises the latency overhead of the bus and allows for full use of its bandwidth, and also enables utilisation
+of all the GPU cores.
 
-% GPU Kernel need to explain what thread blocks are lol
+% Tiling
 
-GPUs execute programs called kernels. A GPU implements general matrix multiplication by partitioning the output matrix 
-into tiles, which are then assigned to thread blocks.
+\subsection{Tiling on the GPU}
 
-% GPU handler and dispatcher design
+We choose to make use of matrix tiling on the GPU. Without tiling, a naive kernel would force each work-item to read
+full rows and columns from the matrix in slow global memory, crippling
+performance. Instead, by choosing an example tile size of 16x16, each work-group loads a small tile from global memory 
+to fast local memory, synchronises, computes partial dot products, and moves on to the next tile. This has a similar 
+benefit to the batching of multiplications, but on a more granular level.
 
-% talk about using the gpu in parallel with cpu compute to maximise multiplication throughput.
+Recall that we rejected the use of tiled matrix multiplication on the CPU in Section \ref{impl:cpu-tiling},
+as the 64x64 matrices fit entirely within the L1 cache. It is true that the matrices would likely be able to fit in the 
+local memory of a work group, but a difference between the bottlenecks of the CPU and the GPU make tiling an
+attractive proposal.
 
-% GPU Handler code
+GPUs hide resource latency by keeping thousands of threads in flight. A \textit{Compute Unit} in OpenCL is the device 
+component that schedules and executes work-groups (equivalent to a CUDA Streaming Multiprocessor).
+If a work-group stalls while waiting for global memory, the CU instantly switches to executing another work-group.
+However, the number of work-groups a CU can keep `in-flight' is limited by the resources each work-group requires. 
+If tiling is used, each work-group only consumes a small amount of memory, and so several tiles from several matrices 
+can be held in local memory, allowing more independent work-groups to be `in-flight', than if no tiling was used.
 
-% Need to talk about tuning!
+This approach is also used on the CPU in coarse-grained multithreading to hide high-latency stalls. However, we do not 
+need to utilise the same tiling approach to increase occupancy, as a CPU thread is engineered specifically to prevent 
+stalling, through use of large caches, out-of-order execution, branch prediction, and hardware prefetchers. The GPU 
+does not make use of such systems as it assumes there always exists more threads ready to execute to hide the stall.
+This simplifies the architecture design, which frees up resources that are spent on optimising pure throughput performance.
+
+% Kernel design
+
+\subsection{GPU Kernel}
+
+\begin{algfloat}[htbp]
+\begin{lstlisting}[language=C++]
+#define TILE_SIZE 16
+__kernel void batched_max_plus_tiled(__global const int* A_batch,
+                                     __global const int* B_batch,
+                                     __global int* C_batch,
+                                     const int N,
+                                     const int negative_infinity) {
+  __local int As[TILE_SIZE][TILE_SIZE];
+  __local int Bs[TILE_SIZE][TILE_SIZE];
+
+  int bx = get_group_id(0);
+  int by = get_group_id(1);
+  int tx = get_local_id(0);
+  int ty = get_local_id(1);
+  int batch_idx = get_group_id(2);
+
+  int row = by * TILE_SIZE + ty;
+  int col = bx * TILE_SIZE + tx;
+  int offset = batch_idx * (N * N);
+
+  int max_val = negative_infinity;
+  int num_tiles = (N + TILE_SIZE - 1) / TILE_SIZE;
+
+  for (int t = 0; t < num_tiles; ++t) {
+    if (row < N && (t * TILE_SIZE + tx) < N) {
+      As[ty][tx] = A_batch[offset + row * N + t * TILE_SIZE + tx];
+    } else {
+      As[ty][tx] = negative_infinity;
+    }
+
+    if ((t * TILE_SIZE + ty) < N && col < N) {
+      Bs[ty][tx] = B_batch[offset + (t * TILE_SIZE + ty) * N + col];
+    } else {
+      Bs[ty][tx] = negative_infinity;
+    }
+
+    barrier(CLK_LOCAL_MEM_FENCE);
+
+    for (int k = 0; k < TILE_SIZE; ++k) {
+      int a_val = As[ty][k];
+      int b_val = Bs[k][tx];
+
+      if (a_val != negative_infinity && b_val != negative_infinity) {
+        int current_path_length = a_val + b_val;
+        if (current_path_length > max_val) {
+          max_val = current_path_length;
+        }
+      }
+    }
+    barrier(CLK_LOCAL_MEM_FENCE);
+  }
+
+  if (row < N && col < N) {
+    C_batch[offset + row * N + col] = max_val;
+  }
+}
+\end{lstlisting}
+  \caption{Tiled GPU kernel for computing batches of matrix multiplications}
+  \label{alg:gpu-kernel}
+\end{algfloat}
+
+Algorithm \ref{alg:gpu-kernel} shows the OpenCL code for the GPU kernel. Notable sections of 
+the kernel include:
+\begin{description}
+  \item[L7-8] Initialisation of the local memory tile for the work-group.
+  \item[L10-14:] Getting the appropriate indices for the work-group and work-item. The NDRange is 3-dimensional, with 
+    the first two dimentions (\verb|bx| and \verb|by|) denoting the index of the tile in the output matrix, and the 
+    third dimension (\verb|batch_idx|) giving the specific matrix in the batch. The local indices (\verb|tx| and \verb|ty|)
+    identify the cell on which the work-item performs its operations.
+  \item[L24-34:] Loading the cells of the tile from global memory into the local memory. Note that if a work-item is 
+    outside the matrix size, it pads the matrix with $-\infty$.
+  \item[L36:] Since all work-items in a work group execute synchronously, we place a memory barrier to ensure that all 
+    work-items have loaded their cell before performing computation.
+  \item [L38-48:] Computing the dot product of the relevant column and row in the tile, using the max-plus algebra logic.
+  \item [L49:] Again, we place a memory barrier to ensure all work-items have completed their computation before writing 
+    back the result to global memory on line 53.
+\end{description}
+
+\subsection{Host to device dispatch}
+
+% Synchronous GPU handler and dispatcher design
+
+To execute the kernel on the GPU, we need to implement a dispatcher, that batches and executes multiplications,
+and then collects the results, resolving dependencies as needed. Dependency resolution logic is similar to the logic in 
+Section \ref{impl:split-compute}, but differs slightly as multiplications are batched.
+
+For simplicity, we opted to use a synchronous dispatcher thread and a dependency aggregator thread. 
+The synchronous dispatcher thread operates as follows:
+
+\begin{enumerate}
+  \item Collect ready jobs from a queue, up till a certain batch size.
+  \item Pack matrix data from matrix objects into flat arrays to be sent to the GPU.
+  \item Wait for data to be sent to the GPU, computations completed, and results to return.
+  \item Unpack the matrix data from the flat arrays back into the original matrix objects.
+  \item Push completed jobs to a separate queue and return to step 1.
+\end{enumerate}
+
+The dependency aggregator thread then pops completed jobs off the queue, and resolves dependents, using the dependency 
+management logic from Algorithm \ref{alg:async-mults}.
+
+While this synchronous model is simple and safe, as multiplications are managed synchronously, it introduces an "idle hardware" 
+problem. While the CPU is processing a batch of matrices, the GPU starves for work. Conversely, when the GPU is computing, 
+the host CPU is blocked, and doing nothing.
+
+This presents two clear targets for future optimisation:
+
+\begin{enumerate}
+  \item Use an asynchronous double-buffered queue, where the CPU prepares Batch $B$ while the GPU is actively computing 
+    Batch $A$.
+  \item Allow for additional free CPU threads to execute multiplications alongside the GPU.
+\end{enumerate}
 
 \section{Repository overview}
