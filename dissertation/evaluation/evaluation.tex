@@ -26,7 +26,8 @@ The evaluation will measure the system against the MoSCoW criteria defined in Ta
 \section{Algorithmic and data-driven optimisations}
 
 This section assesses the impact of the data-driven optimisations presented in Sections \ref{impl:matrices}
-and \ref{impl:fast-expr}. Benchmarks are performed using the single-threaded 
+and \ref{impl:fast-expr}, to assess the PE requirement from Table \ref{tbl:requirements-analysis}.
+Benchmarks are performed using the single-threaded 
 pipeline from Figure \ref{fig:single-threaded-pipeline}, in some cases with 
 components excluded to assess their impact.
 
@@ -220,6 +221,9 @@ branch structure of the underlying merge sort algorithm is better suited to a pu
 Because the loader stage involves sequential I/O work, this becomes the primary sequential bottleneck for our analysis tool.
 Amdahl's law \cite{amdahl} states that speedup is limited by this sequential part of the pipeline, and so our further
 parallel optimisations will be limited by the large loader stage.
+
+Overall, I believe this single-threaded pipeline satisfies the success criteria for the PE requirement in Table
+\ref{tbl:requirements-analysis}.
 
 \section{Concurrency and GPU analysis}
 
