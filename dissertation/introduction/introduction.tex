@@ -1,11 +1,12 @@
 \chapter{Introduction}
 
-% ask whether matrix-based tropical semiring formulations can outperform conventional sequential DDG longest-path
-% analysis while preserving correctness on realistic traces.
+This project explores a novel matrix-based technique for calculating the upper bound of ILP in a program.
+We show that this approach offers better performance than traditional analysis techniques, albeit at the cost of 
+memory.
 
 \section{Instruction Level Parallelism}
 
-\textit{Instruction level parallelism} is the simultaneous execution of instructions in a computer processor~\cite{hennessy_patterson}.
+\textit{Instruction level parallelism} (ILP) is the simultaneous execution of instructions in a computer processor~\cite{hennessy_patterson}.
 These instructions come from a single specific thread of execution in a computer program, as opposed to 
 concurrency, where instructions from many threads are executed concurrently, and therefore is known as
 \textit{thread level parallelism}.
@@ -131,7 +132,7 @@ and try to find the theoretical limit of ILP available in a program. Alternative
 control flow models (imperfect branch prediction), and instruction window scaling, where ILP is only computed within a
 smaller window of instructions (instead of the whole program), to identify how `local' a program's ILP is~\cite{wall-ilp, future-ilp, ilp-spec95}.
 
-\section{Motivations}
+\section{Motivation} \label{intro:motivation}
 
 % Why do we want to develop a new methodology for limit studies?
 
@@ -152,15 +153,22 @@ compute the longest path in the DDG. This approach becomes a problem of reducing
 The primary benefit is that the matrix expression is a divisible computation, due to the associativity of 
 matrix multiplication. The multiplications can be carried out in any order, and intermediate results fully encode the
 dependency information of the instructions they range over. This enables a range of optimisations, including
-thread-level parallelisation, result memoisation, and order of operations based on heuristics.
+thread-level parallelisation, result memoisation, and choosing evaluation orders based on heuristics.
 
 One additional benefit of the associativity of the matrix expression is that it makes instruction window scaling for 
 limit studies much easier. Consider three windows of instructions: A, B, and C (which is comprised of windows A and B
-consecutively). To compute ILP information for each window, the traditional approach must be executed 3 times, once for 
+consecutively).
+
+\begin{center}
+\input{diagrams/blocks.tex}
+\end{center}
+
+To compute ILP information for each window, the traditional approach must be executed 3 times, once for 
 each window. However, the matrix-based approach will only need to run twice, on A and B, and the dependency 
 information matrix for C can simply be obtained by multiplying the result matrices from A and B.
 
-In this project, I will explore several approaches for performing Chadwick's matrix-based approach efficiently, 
-considering various types of parallelism, including at the data, thread, and accelerator level. I will then benchmark 
-and evaluate these approaches, demonstrating a performance improvement over the `classical' technique for computing 
-dependency chains (which we will refer to as the \textit{naive baseline} in this project).
+In this project, I explore several approaches for performing Chadwick's matrix-based approach efficiently to build 
+an analysis tool for computing the upper limit of ILP in a program.
+I consider various types of parallelism, including at the data, thread, and accelerator level.
+I then benchmark and evaluate these approaches, demonstrating a performance improvement over the `classical' technique
+for computing dependency chains (which we will refer to as the \textit{naive baseline} in this project).

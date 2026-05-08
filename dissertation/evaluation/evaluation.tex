@@ -26,10 +26,11 @@ The evaluation will measure the system against the MoSCoW criteria defined in Ta
 \section{Algorithmic and data-driven optimisations}
 
 This section assesses the impact of the data-driven optimisations presented in Sections \ref{impl:matrices}
-and \ref{impl:fast-expr}. All benchmarks are performed using the single-threaded 
-pipeline.
+and \ref{impl:fast-expr}. Benchmarks are performed using the single-threaded 
+pipeline from Figure \ref{fig:single-threaded-pipeline}, in some cases with 
+components excluded to assess their impact.
 
-\subsection{Matrix multiplications}
+\subsection{Matrix multiplications} \label{eval:matrix-mults}
 
 We first evaluate our matrix implementations presented in Section \ref{impl:matrices}.
 This benchmark made use of the Google Benchmark framework, and executed multiplications on matrices of size 64x64 of 
@@ -57,7 +58,7 @@ shown in \ref{fig:matrix-sparsity}
 and Appendix \ref{apdx:nni-histograms}, sparse matrix multiplications 
 offer the best performance for CPU-based multiplications, and so are used in all following benchmarks.
 
-\subsection{Encoder performance and compression}
+\subsection{Encoder performance and compression} \label{eval:encoder-perf}
 
 Evaluating the encoding strategies reveals a fundamental trade-off between the computational cost of frequency analysis 
 and the optimality of the resulting evaluation tree.
@@ -217,24 +218,100 @@ are made. This implies that the greedy approach has much worse efficiency for th
 branch structure of the underlying merge sort algorithm is better suited to a pure pair encoding approach.
 
 Because the loader stage involves sequential I/O work, this becomes the primary sequential bottleneck for our analysis tool.
-Amdahl's law %TODO:Citation
-states that speedup is limited by this sequential part of the pipeline, and so our further parallel optimisations will be 
-limited by the large loader stages.
+Amdahl's law \cite{amdahl} states that speedup is limited by this sequential part of the pipeline, and so our further
+parallel optimisations will be limited by the large loader stage.
 
 \section{Concurrency and GPU analysis}
 
-encoder time performance (directly from program execution) with threads and chunks
+This section assesses the impact of the parallel optimisations presented in Sections \ref{impl:parallelisation}
+and \ref{impl:gpu}, to assess the the MP and GA project requirements from Table \ref{tbl:requirements-analysis}.
 
-encoder efficiency! with chunk count
+Benchmarks are performed using the multi-threaded pipeline from Figure \ref{fig:multi-threaded-pipeline}.
+We mostly focus on benchmarks performed on the factor trace, as it required the largest number of multiplications to reduce the expression.
 
-multiplication performance (artificial benchmark so we can make sure multiplier doesnt starve for huge multiiplication counts) with threads
+\subsection{Concurrency}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_scaling.png}
+  \caption{Multi-threaded pipeline component runtime for various thread configurations.}
+  \label{eval:fig:multi-thread-speedup}
+\end{figure}
+
+Figure \ref{eval:fig:multi-thread-speedup} 
+immediately shows the impact of introducing an asynchronous architecture on the runtime of the multi-threaded pipeline components.
+By just scaling to 4 matrix compute threads, runtime drops from 9s down to \~2.5s, and further, albeit less significant improvements 
+are seen when increasing the number of encoding and compute threads. This satisfies the success criteria for the MP requirement.
+
+Interestingly, the chunk multiplier only has a small impact on performance. The expression is split up into a number of chunks equal 
+to the number of encoding threads multiplied by the chunk multiplier.
+Section \ref{impl:enc-scaling} theorised that splitting into several chunks would equalise the work 
+done by each thread, and while this does result in a small improvement, it is likely that the impact is minimal as the previous stages in 
+the pipeline have already simplified many patterns, leaving behind a more homogeneous expression.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_lag.png}
+  \caption{Lag time for various thread configurations.}
+  \label{eval:fig:multi-thread-lag}
+\end{figure}
+
+To understand the large drop in runtime, we can examine the lag time of the pipeline, which is the time between the 
+parallel encoder stage completing the evaluation order, and the expression being completely reduced. Figure \ref{eval:fig:multi-thread-lag}
+shows that increasing the number of compute threads relative to the number of encoding threads almost eliminates this lag time, 
+and so choosing the right number of threads is a balancing act. The encoding threads provide work for the compute threads, and so 
+we need enough compute threads to keep up with the work, and enough encoding threads to ensure that the compute threads do not starve.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_throughput.png}
+  \caption{Matrix multiplication throughput for various thread configurations.}
+  \label{eval:fig:multi-thread-throughput}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_overhead.png}
+  \caption{Dependency management overhead.}
+  \label{eval:fig:multi-thread-overhead}
+\end{figure}
+
+We also see in Figure \ref{eval:fig:multi-thread-throughput}
+an order of magnitude increase in the throughput between 1 and 12 compute threads. Figure \ref{eval:fig:multi-thread-overhead}
+tells us that dependency management maintains a fairly constant overhead of 20\%, so this approach is scaling well with regards to the 
+shared data structures involved.
+
+However, the multiplication throughput, along with the total runtime in Figure \ref{eval:fig:multi-thread-speedup}
+harshly tapers off beyond the 4:12 thread configuration. This could be caused by several reasons.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_compression.png}
+  \caption{Encoder compression performance changing with chunk size.}
+  \label{eval:fig:multi-thread-compression}
+\end{figure}
+
+Section \ref{impl:enc-scaling} explains that increasing the number of chunks (thereby reducing each chunk's size)
+damages the encoder's efficiency. Figure \ref{eval:fig:multi-thread-compression} backs this 
+up, with a decrease in compression ratio from 7 to 5 representing a 40\% increase in the number of multiplications required to reduce the final 
+expression. This may contribute to poor scaling with more chunks, but since the lag time is still close to zero in this case, the compute threads are still 
+able to keep up with the increased number of queued multiplications.
+
+I believe the issue arises from hardware limits - particularly the thread limit and the heterogeneous architecture. With the higher thread configuration of 5:15,
+the CPU becomes oversubscribed. The Intel i7-12700H supports a maximum of 20 hardware threads. By using 20 threads for asynchronous compute, alongside the main thread 
+and other OS threads running in the background, the CPU can no longer allow a thread to run uninterrupted on a core, and so the share of the CPU time a thread 
+receives is diminished. We may also become limited by the memory bandwidth; with 15 cores doing multiplication operations, the shared L3 cache is quickly saturated.
+Additionally, Intel's heterogeneous architecture of performance and efficiency cores further reduces the return on investment. AS the number of threads used increases, 
+more of these have to run on less powerful efficiency cores, and so the scaling curve flattens.
+
+\subsection{GPU analysis}
 
 GPU timeline
 
-\section{Memory profiling}
-
-bar chart maximum resident set size 
-
-line graph heap memory allocation
+% \section{Memory profiling}
+%
+% bar chart maximum resident set size 
+%
+% line graph heap memory allocation
 
 \section{Holistic Pipeline}

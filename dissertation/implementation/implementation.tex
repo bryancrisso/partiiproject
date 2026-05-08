@@ -1,10 +1,20 @@
 \chapter{Implementation}
 
 This chapter describes the implementation of the different components of the analysis tool, working from the naive 
-baseline, exploring matrix representations and computations, continuing to data-driven optimisations, and concluding 
-with acceleration of compute using additional hardware.
+baseline
+(Section \ref{impl:naive-baseline}),
+exploring matrix representations and computations
+(Section \ref{impl:matrices}),
+the basics behind matrix expression reduction
+(Section \ref{impl:matrix-approach}),
+continuing to data-driven optimisations
+(Section \ref{impl:fast-expr}),
+and concluding with acceleration of compute using additional hardware
+(Sections \ref{impl:parallelisation} and \ref{impl:gpu}).
 
-\section{Naive Baseline}
+%TODO: Table for listing optimisations?
+
+\section{Naive Baseline} \label{impl:naive-baseline}
 
 As described in Section \ref{intro:methodology}, classical techniques for 
 ILP limit studies rely on sequential algorithms that iterate through a program trace. Inspired by the PerPI tool \cite{perpi},
@@ -120,7 +130,9 @@ representation. Propagation of dependencies for all the chains is simply the mul
 
 \section{Matrix Multiplications} \label{impl:matrices}
 
-This section details several approaches to representing and multiplying matrices together on the CPU.
+As introduced in Section \ref{prep:understanding-approach},
+this section details several approaches to representing and multiplying matrices together in the tropical semiring 
+on the CPU. The performance of these approaches is evaluated in Section \ref{eval:matrix-mults}.
 
 \subsection{A naive matrix implementation}
 
@@ -418,7 +430,7 @@ This allows for multiplications to be batched, which will be useful when delegat
 \section{Fast expression reduction} \label{impl:fast-expr}
 
 This section describes several data-driven optimisations for reducing the work required to reduce the matrix expression,
-by exploiting patterns in the data.
+by exploiting patterns in the data, which were explored in Section \ref{prep:datasets}.
 
 \subsection{Fast exponentiation}
 
@@ -551,12 +563,10 @@ We can see how this addresses particular pain points.
   \item In later iterations, the frequencies of adjacent pairs plummets, and so the encoder will choose many more 
     candidate pairs to exceed the threshold. This ensures enough work is done per iteration to offset the cost of the 
     frequency analysis.
-  \item Finally, the optimal fixed percentage parameter varies much less across different datasets, as evidenced in Section %TODO:eval
+  \item Finally, the optimal fixed percentage parameter varies much less across different datasets, as evidenced in Section \ref{eval:encoder-perf}.
 \end{itemize}
 
 \subsection{Finding flat loops without frequency analysis} \label{impl:loop-finder}
-
-%TODO: float and rethink pseudocode
 
 While the pair encoding scheme successfully exploits patterns in the data to reduce the total number of multiplications 
 required to reduce the expression, the frequency analysis performed at each iteration is expensive. Both the multiple
@@ -688,12 +698,13 @@ function countIterations(int[] trace, int currentPos, int period) {
 \label{fig:single-threaded-pipeline}
 \end{figure}
 
-\section{Parallelisation}
+\section{Parallelisation} \label{impl:parallelisation}
 
-So far, the analysis tool has executed on a single thread. Each component of the pipeline runs sequentially, and when
-a component decides to multiply a pair of matrices, the operation executes synchronously. We have noted the potential 
-for optimisation of the original problem via parallelisation, and so this section describes approaches to parallelising
-the reduction pipeline.
+In section \ref{impl:fast-expr}, the analysis tool executed on a single thread.
+Each component of the pipeline ran sequentially, and when
+a component decided to multiply a pair of matrices, the operation executed synchronously. We have noted the potential 
+for optimisation of the original problem via parallelisation in Section \ref{intro:motivation},
+and so this section describes approaches to parallelising the reduction pipeline.
 
 \subsection{Concurrent data structures} \label{impl:data-structs}
 
@@ -955,7 +966,7 @@ hope to offset this extra work by utilising more compute. The impact on efficien
 \end{figure}
 \FloatBarrier
 
-\section{Accelerator-level parallelism}
+\section{Accelerator-level parallelism} \label{impl:gpu}
 
 % Using the GPU for matrix multiplications
 

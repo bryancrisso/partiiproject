@@ -1,6 +1,11 @@
 \chapter{Preparation}
 
-\section{Understanding the matrix-based approach}
+This chapter outlines the work done in the setup of the project. Section \ref{prep:understanding-approach}
+explains the theoretical background of the matrix-based approach. Section \ref{prep:datasets} 
+explores the data on which the analysis tool is executed. Finally, Section \ref{prep:design}
+outlines the software engineering methodologies used, project requirements, and chosen tooling.
+
+\section{Understanding the matrix-based approach} \label{prep:understanding-approach}
 
 {\footnotesize\itshape
 The applications of tropical semirings to dynamic dependency graphs, particularly the sections on
@@ -173,7 +178,7 @@ $$
 
 This corresponds to the longest distance matrix between all pairs of nodes.
 
-\subsection{Forming the DDG and register-only longest chains} \label{prep:register-only-chains}
+\subsection{Forming the columnar DDG} \label{prep:register-only-chains}
 
 As defined in Section \ref{intro:methodology}, a standard DDG represents 
 each dynamically executed instruction as a single node. While this formulation is intuitive for visualising the program 
@@ -223,21 +228,19 @@ computationally unfeasible.
 
 \subsection{Alternative graph representation} \label{prep:alternative-matrix-struct}
 
-We can see a particular structure in the DDGs we construct - they are more long than wide. While a 
-standard $N \times N$ adjacency matrix (where $N$ is the total number of dynamically executed instructions) could 
-map the graph, it is inefficient.
-This is because, in the DDG, edges \textit{only} exist between adjacent columns.
-Therefore, the full adjacency matrix $X$ is mostly filled with $-\infty$.
-Instead, the DDG can be modelled as a sequence of adjacent columns. 
+Section \ref{prep:register-only-chains} stated that constructing a full adjacency 
+matrix is computationally unfeasible for realistic program traces, as they contain trillions of dynamic instructions. 
+
+We propose an alternative representation to the full adjacency matrix.
+There is a particular structure in the DDGs we construct: they are more long than wide.
+In the DDG, edges \textit{only} exist between adjacent columns, and so a full adjacency matrix $X$ is mostly filled
+with $-\infty$. We can instead model a DDG as a sequence of adjacent columns. 
+
 Consider an arbitrary graph with the property of being more long than wide:
 
 \begin{center}
   \input{diagrams/graph2.tex}
 \end{center}
-
-First, we modify the graph such that the longest path is always connected to the 
-rightmost part of the graph, by adding extra nodes and cost-0 edges, and so also each path is connected to the first 
-column similarly.
 
 To utilize column-wise matrices for longest-path calculations, the graph must first be padded. We introduce a set of 
 `dummy' nodes to the first and last columns, connected by 0-cost edges. This guarantees that any local path within the 
@@ -331,12 +334,14 @@ more dynamic instructions in the DDG than the number of static instructions in t
 of matrices in the equation, allowing us to find and exploit common patterns, and further reducing the actual memory 
 required to store the DDG.
 
-\section{Datasets}
+\section{Datasets} \label{prep:datasets}
 
-I selected execution traces from several GNU coreutils programs (v8.32) to benchmark the analysis tool, all executed on 
-an AArch64 architecture.
+I selected execution traces from several GNU coreutils programs (v8.32) \cite{coreutils} to benchmark the analysis tool, all executed on 
+an AArch64 architecture. Execution traces are lists of the instructions executed during an execution of a program.
+In our case, the execution traces are given as a series of branches, which can be interpreted as a series of basic 
+blocks. A basic block is a series of instructions executed sequentially without a branch. %TODO: better definition?
 
-\subsection{Dataset listing} \label{prep:datasets}
+\subsection{Dataset listing} 
 
 The chosen program executions are:
 
@@ -377,9 +382,13 @@ collected by Alexandra Chadwick (\textit{awc32}) using custom tooling.
 
 \subsection{Data properties}
 
+Many of the optimisations in this project revolve around exploiting patterns in the datasets by varying evaluation orders 
+and memoising intermediate results. To motivate these optimisations, we can perform an analysis on the execution traces 
+to quantify the extent of these data patterns.
+
 %TODO: Verbatim
-Before exploring the properties of the chosen datasets, we introduce basic terminology for distinguishing various types 
-of repeating patterns \cite{PMRepeats}. Repeating substrings (or \textit{repeats}) in a string can be
+We introduce terminology for distinguishing various types of repeating patterns \cite{PMRepeats}.
+Repeating substrings (or \textit{repeats}) in a string can be
 \begin{itemize}
   \item \textit{tandem} repeats where successive repeat substrings immediately follow each other. They characterise 
     loops in a program trace.
@@ -436,7 +445,7 @@ This pattern can be exploited in two ways:
     the singular result matrix without any extra computation.
 \end{enumerate}
 
-\section{Project design}
+\section{Project design} \label{prep:design}
 
 This section outlines the software engineering methodology adopted during implementation, specification of the 
 project requirements, and technical justification for the chosen tools.
