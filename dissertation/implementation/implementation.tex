@@ -487,7 +487,7 @@ This process repeats until the pair encoder reaches the cutoff threshold.
 
 \subsection{Multiple pair encoding}
 
-While the described pair encoding scheme ensures the most frequent adjacent pair is selected at each iteration,
+While the previously described pair encoding scheme ensures the most frequent adjacent pair is selected at each iteration,
 computing the frequencies can be expensive. As we evaluate the larger data patterns in the earlier stages of the
 reduction, the top frequency falls dramatically, and simply evaluating the most frequent adjacent pair does not offset
 the cost of performing the frequency analysis.
@@ -495,7 +495,7 @@ the cost of performing the frequency analysis.
 We can mitigate the cost by choosing to evaluate many adjacent pairs at an iteration, increasing the amount of work done,
 and so reducing the number of iterations required for this stage. The approach we take is to find the top $N$ most 
 frequent pairs, and set them as \textit{candidates} for replacement. Not all chosen pairs will end up being evaluated, 
-as some may disappear during replacement as they are adjacent to other evaluated pairs.  %TODO: unclear wording
+as some may disappear during replacement as they are adjacent to other evaluated pairs.
 
 However, this approach is less accurate and can impact the ability to exploit data patterns. For example,
 we again inspect cksum's inner loop (Figure \ref{fig:cksum-deps}).
@@ -506,7 +506,6 @@ $$
 
 Choosing to replace 8 pairs, the algorithm maps $AB\to H, CD \to I, \dots$, and the expression is reduced to
 
-%TODO: maybe put arrows showing AB->H,... etc?
 $$
 (H I J K L M N)^{32768}
 $$
@@ -700,7 +699,7 @@ function countIterations(int[] trace, int currentPos, int period) {
 
 \section{Parallelisation} \label{impl:parallelisation}
 
-In section \ref{impl:fast-expr}, the analysis tool executed on a single thread.
+In Section \ref{impl:fast-expr}, the analysis tool executed on a single thread.
 Each component of the pipeline ran sequentially, and when
 a component decided to multiply a pair of matrices, the operation executed synchronously. We have noted the potential 
 for optimisation of the original problem via parallelisation in Section \ref{intro:motivation},
@@ -763,7 +762,6 @@ Matrix multiplications are done synchronously in the reduction pipeline. However
 multiply a pair of matrices and the execution of the multiplication are two separate tasks, with the latter dependent
 on the former.
 
-%TODO: Not necessarily a binary tree if we are not storing duplicates!
 The sequence of these decisions determines an \textit{evaluation order} for the expression, forming a binary tree with
 the original matrices at the leaves.
 Because components select multiplications based only on matrix identifiers (pointers), and not by inspecting the matrix
@@ -929,7 +927,7 @@ stage.
 Increasing the thread count can lead to contention, as each thread has to access the shared \verb|pendingJobs| 
 map when processing dependencies. This map uses bucket-level reader-writer locks (as described in section \ref{impl:data-structs}),
 and so two threads may try to exclusively access the same bucket, preventing them from simultaneously making progress.
-The impact of this is evaluated in Section %TODO: eval
+The impact of this is evaluated in Section \ref{eval:concurrency}.
 
 \subsubsection{Encoding scaling} \label{impl:enc-scaling}
 
@@ -954,7 +952,7 @@ However, performing local frequency analysis on smaller chunks of the expression
 encoding stage. The BPE-adjacent approach performs best with global frequency values, as the frequency distribution
 within a single chunk may not reflect the frequency distribution of the whole expression. This often leads to a 
 worse evaluation order within each chunk, requiring more multiplications to reduce the expression as a whole, but we
-hope to offset this extra work by utilising more compute. The impact on efficiency is explored in Section %TODO: eval
+hope to offset this extra work by utilising more compute. The impact on efficiency is explored in Section \ref{eval:concurrency}.
 
 \subsubsection{Final parallel pipeline}
 

@@ -40,7 +40,7 @@ them.
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.5\textwidth]{graphs/matrix_nni_performance.png}
+  \includegraphics[width=0.6\textwidth]{graphs/matrix_nni_performance.png}
   \caption{Comparing runtime of matrix multiplication approaches, for matrices of varying sparsity.}
   \label{eval:fig:matrix-perf}
 \end{figure}
@@ -233,7 +233,7 @@ and \ref{impl:gpu}, to assess the the MP and GA project requirements from Table 
 Benchmarks are performed using the multi-threaded pipeline from Figure \ref{fig:multi-threaded-pipeline}.
 We mostly focus on benchmarks performed on the factor trace, as it required the largest number of multiplications to reduce the expression.
 
-\subsection{Concurrency}
+\subsection{Concurrency} \label{eval:concurrency}
 
 \begin{figure}[htbp]
   \centering
@@ -346,6 +346,9 @@ individually copy each matrix's data.
 This is exacerbated by the use of a synchronous pipeline. Implementing a double-buffered approach, would allow the CPU 
 to pack and transfer batch $B$ while the GPU computes the previously prepared batch $A$. This effectively hides the data management 
 overhead behind computation.
+
+The success criteria for the requirement GA in Table \ref{tbl:requirements-analysis}
+has been met, as we did successfully offload multiplications to the GPU, although throughput never overtook overhead.
 
 % \section{Memory profiling}
 %
