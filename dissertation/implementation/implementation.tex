@@ -1145,3 +1145,26 @@ This presents two clear targets for future optimisation:
 \end{enumerate}
 
 \section{Repository overview}
+
+\begin{lstlisting}[frame=none,numbers=none]
+.
+|- include/
+|  |- compute/                | Async CPU/GPU compute, matrix pool.
+|  |- expr_simplification/
+|  |  |- loop_finding/        | Fast loop finder.
+|  |  |- pair_encoding/       | The three pair encoding schemes.
+|  |  |- run_length_encoding/ | RLE using fast exponentiation.
+|  |  |- tree_reduction/      | Simple tree reduction approach.
+|  |- loaders/                | Loading deps, mats and expression.
+|  |- matrices/               | Various matrix implementations.
+|  |- strategies/             | Baseline, seq and parallel pipelines.
+|  |- util/                   | Utility functions, constants, metrics
+|- src/
+|  |- loaders/                | Loader implementations
+|  |- strategies/             | Strategy implementations
+|  |- opencl/                 | OpenCL kernels
+|  |- CMakeLists.txt
+|  |- *_main.cpp              | Various main programs
+|-- CMakeLists.txt
+\end{lstlisting}
+
