@@ -306,7 +306,42 @@ more of these have to run on less powerful efficiency cores, and so the scaling 
 
 \subsection{GPU analysis}
 
-GPU timeline
+\begin{table}[ht]
+  \centering
+\begin{tabular}{lcc}
+  \toprule
+  \textbf{Section} & \textbf{Time taken (ms)} & \textbf{Percentage} \\
+  \midrule
+  Pack    & 8.534 & 26.1\% \\
+  Send    & 2.149 & 6.58\% \\
+  Compute & 11.56 & 35.4\% \\
+  Receive & 2.931 & 8.97\% \\
+  Unpack  & 6.970 & 21.3\% \\
+  Total   & 32.67 &  100\% \\
+  \bottomrule
+\end{tabular}
+\caption{GPU timeline breakdown for a batch of 4096 multiplications.}
+\label{tbl:gpu-breakdown}
+\end{table}
+
+Table \ref{tbl:gpu-breakdown} presents the 
+execution timeline for a sample batch of 4096 matrix multiplications dispatched to the OpenCL kernel described in 
+Algorithm \ref{alg:gpu-kernel}. The total time of 32.67ms yields a throughput of approximately 
+125,374 multiplications per second. Comparing this to the CPU multiplication scaling in Figure \ref{eval:fig:multi-thread-throughput},
+this matches the throughput of a single CPU thread, and is eclipsed by the full use of 12-15 threads. This stems from 
+the hardware choice and the dispatcher architecture.
+
+The benchmark was executed on an Intel Iris Xe integrated graphics chip, which is a heavily constrained piece of hardware. 
+Not only does it share the power budget, thermal limits, and memory bandwidth with the host CPU, it is also significantly 
+weaker than other dedicated GPU options, relative to the CPU's performance.
+
+The table also reveals a major bottleneck in the timeline. Data management and transfer overhead forms approximately 
+65\% of the execution time. As matrices are allocated dynamically on the heap \ref{impl:matrix-approach},
+their addresses are not contiguous, and so the pack and unpack stages force the CPU to chase scattered pointers and 
+individually copy each matrix's data.
+This is exacerbated by the use of a synchronous pipeline. Implementing a double-buffered approach, would allow the CPU 
+to pack and transfer batch $B$ while the GPU computes the previously prepared batch $A$. This effectively hides the data management 
+overhead behind computation.
 
 % \section{Memory profiling}
 %
