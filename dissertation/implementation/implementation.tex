@@ -119,7 +119,7 @@ The loop body contains 7 instructions, with a critical path length of 4, yieldin
 Executing the sequential algorithm over one invocation of the inner loop (65536 iterations) processes a total of 458752
 instructions, and finds a critical path length of 262145. This path length includes the outgoing edge from the last
 execution of instruction \verb|1c68|, so 1 is subtracted. Then, the ILP limit is $458752/262144=1.75$, verifying our 
-baseline.
+baseline. This satisfies the success criteria for the NB project requirement from Table \ref{tbl:requirements-analysis}.
 
 \subsection{Limitations of parallelisation}
 

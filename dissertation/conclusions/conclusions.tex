@@ -1,3 +1,31 @@
 \chapter{Conclusions}
 
-In conclusion....
+The project was overall a success. The analysis tool built offers a direct performance improvement over the classical 
+techniques for conducting ILP limit studies. All the minimum success criteria were met, and nearly all the extensions have 
+been implemented with varying levels of success. The associativity of the matrix approach has been shown to offer 
+clear pathways for both data-driven and parallel optimisations.
+
+\section{Lessons learned}
+
+
+
+\section{Future work}
+
+While the core of the project is complete, there are further improvements that could be made. Listed are some shortcomings 
+that could be addressed in the future.
+
+\begin{itemize}
+  \item The GPU pipeline did not make full use of the compute available. More work could be done to implement a
+    double-buffered dispatch architecture to hide overhead, and make use of a hybrid system that simultaneously multiplies
+    matrices on CPU threads to maximise throughput.
+  \item The memory usage of the tool is technically unbounded, and it would often crash during benchmarks, or even stall 
+    due to spillover into swap space. More work could be done to ensure that the maximum memory usage is safely limited 
+    during analysis of realistic traces of trillions of dynamic instructions.
+  \item The analysis tool only tracked register dependencies. While this is still useful for smaller subtraces that keep their 
+    working set in registers, programs will often spill registers to memory. This happened with all the sample traces,
+    and so reported ILP limits were higher than actual values. More work could be done to assess the impact of the data-driven 
+    optimisations on the more complex structure of a matrix expression that tracks memory dependencies.
+\end{itemize}
+
+Overall, the project achieved its goals, and I think it was an interesting project, bridging gaps between concepts in 
+processor design, graph theory, pattern exploitation and parallel computing.

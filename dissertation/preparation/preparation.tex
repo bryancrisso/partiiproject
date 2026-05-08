@@ -326,7 +326,9 @@ from Theorem \ref{thm:mat-exp-longest-paths}.
 \end{corollary}
 
 This defines the final shape of the data that we will be working on as a mathematical expression consisting of a
-series of matrix multiplications. 
+series of matrix multiplications. The corollary theoretically satisfies the success criteria for the MPF requirement 
+in Table \ref{tbl:requirements-analysis}, and
+tool outputs in Appendix \ref{apdx:outputs} verify this operationally.
 
 We can use the column-wise approach to represent the alternative DDG structure from Section \ref{prep:register-only-chains}.
 Because each dynamic instruction has a static set of dependencies, represented by a matrix, and because there are many 
@@ -339,7 +341,7 @@ required to store the DDG.
 I selected execution traces from several GNU coreutils programs (v8.32) \cite{coreutils} to benchmark the analysis tool, all executed on 
 an AArch64 architecture. Execution traces are lists of the instructions executed during an execution of a program.
 In our case, the execution traces are given as a series of branches, which can be interpreted as a series of basic 
-blocks. A basic block is a series of instructions executed sequentially without a branch. %TODO: better definition?
+blocks. A basic block is a series of instructions executed sequentially without a branch.
 
 \subsection{Dataset listing} 
 
@@ -510,14 +512,4 @@ While CUDA provides a highly optimized environment for Nvidia hardware, OpenCL w
 This allowed for development and kernel debugging on integrated Intel graphics (laptop) before deploying to high-performance 
 Nvidia/AMD discrete GPUs for final benchmarking.
 
-\subsection{Evaluation Methodology}
-
-The project will be evaluated using:
-
-\begin{itemize}
-  \item Correctness testing: Unit tests comparing the output of optimised methods against the naive baseline.
-  \item Performance Benchmarking: Measuring wall clock time, memory usage, and throughput across various datasets.
-  \item Scaling Analysis: Measuring the impact of increasing thread counts to identify the sequential limits of the implementation.
-\end{itemize}
-
-% TODO: STARTING POINT
+\subsection{Starting point}
