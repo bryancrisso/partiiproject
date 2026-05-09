@@ -244,7 +244,7 @@ We mostly focus on benchmarks performed on the factor trace, as it required the 
 
 Figure \ref{eval:fig:multi-thread-speedup} 
 immediately shows the impact of introducing an asynchronous architecture on the runtime of the multi-threaded pipeline components.
-By just scaling to 4 matrix compute threads, runtime drops from 9s down to \~2.5s, and further, albeit less significant improvements 
+By just scaling to 4 matrix compute threads, runtime drops from 9s down to $\sim$2.5s, and further, albeit less significant improvements 
 are seen when increasing the number of encoding and compute threads. This satisfies the success criteria for the MP requirement.
 
 Interestingly, the chunk multiplier only has a small impact on performance. The expression is split up into a number of chunks equal 
@@ -273,16 +273,16 @@ we need enough compute threads to keep up with the work, and enough encoding thr
   \label{eval:fig:multi-thread-throughput}
 \end{figure}
 
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_overhead.png}
-  \caption{Dependency management overhead.}
-  \label{eval:fig:multi-thread-overhead}
-\end{figure}
+% \begin{figure}[htbp]
+%   \centering
+%   \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_overhead.png}
+%   \caption{Dependency management overhead.}
+%   \label{eval:fig:multi-thread-overhead}
+% \end{figure}
 
 We also see in Figure \ref{eval:fig:multi-thread-throughput}
-an order of magnitude increase in the throughput between 1 and 12 compute threads. Figure \ref{eval:fig:multi-thread-overhead}
-tells us that dependency management maintains a fairly constant overhead of 20\%, so this approach is scaling well with regards to the 
+an order of magnitude increase in the throughput between 1 and 12 compute threads. Dependency management maintains a
+fairly constant overhead of 20\%, so this approach is scaling well with regards to the 
 shared data structures involved.
 
 However, the multiplication throughput, along with the total runtime in Figure \ref{eval:fig:multi-thread-speedup}
@@ -305,7 +305,7 @@ I believe the issue arises from hardware limits - particularly the thread limit 
 the CPU becomes oversubscribed. The Intel i7-12700H supports a maximum of 20 hardware threads. By using 20 threads for asynchronous compute, alongside the main thread 
 and other OS threads running in the background, the CPU can no longer allow a thread to run uninterrupted on a core, and so the share of the CPU time a thread 
 receives is diminished. We may also become limited by the memory bandwidth; with 15 cores doing multiplication operations, the shared L3 cache is quickly saturated.
-Additionally, Intel's heterogeneous architecture of performance and efficiency cores further reduces the return on investment. AS the number of threads used increases, 
+Additionally, Intel's heterogeneous architecture of performance and efficiency cores further reduces the return on investment. As the number of threads used increases, 
 more of these have to run on less powerful efficiency cores, and so the scaling curve flattens.
 
 \subsection{GPU analysis}
@@ -340,7 +340,7 @@ Not only does it share the power budget, thermal limits, and memory bandwidth wi
 weaker than other dedicated GPU options, relative to the CPU's performance.
 
 The table also reveals a major bottleneck in the timeline. Data management and transfer overhead forms approximately 
-65\% of the execution time. As matrices are allocated dynamically on the heap \ref{impl:matrix-approach},
+65\% of the execution time. As matrices are allocated dynamically on the heap (see Section \ref{impl:matrix-approach}),
 their addresses are not contiguous, and so the pack and unpack stages force the CPU to chase scattered pointers and 
 individually copy each matrix's data.
 This is exacerbated by the use of a synchronous pipeline. Implementing a double-buffered approach, would allow the CPU 

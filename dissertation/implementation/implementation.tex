@@ -386,6 +386,7 @@ As shown in Algorthim \ref{alg:Sp-Sp-matrix}, the accumulation is done as follow
 The algorithm requires dynamic allocation for $C$'s structures, as the $nni$ of $C$ is not known until the
 multiplication is carried out.
 
+\FloatBarrier
 \section{Setting up the matrix approach} \label{impl:matrix-approach}
 
 Having explored matrix multiplications in the previous section, we need an efficient representation and reduction strategy
@@ -427,6 +428,7 @@ approach. At each pass, adjacent matrices are multiplied together, and this is r
 This allows for multiplications to be batched, which will be useful when delegating computation
 (see Section \ref{impl:split-compute}).
 
+\FloatBarrier
 \section{Fast expression reduction} \label{impl:fast-expr}
 
 This section describes several data-driven optimisations for reducing the work required to reduce the matrix expression,
