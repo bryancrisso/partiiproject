@@ -1,0 +1,40 @@
+\chapter{Conclusions}
+
+The project was overall a success. The analysis tool built offers a direct performance improvement over the classical 
+techniques for conducting ILP limit studies. All the minimum success criteria were met, and nearly all the extensions have 
+been implemented with varying levels of success. The associativity of the matrix approach has been shown to offer 
+clear pathways for both data-driven and parallel optimisations.
+
+\section{Lessons learned}
+
+The theory of the matrix-based approach was well-established and understood going into the project.
+However, much of the work involving pattern exploitation was not well-defined in the project proposal, and so much 
+of the work in Section \ref{impl:fast-expr} was exploratory and took up more time 
+than expected. This left little time to deal with the steep learning curves of multithreaded and GPU programming, and 
+highlighted the importance of domain knowledge and tool preparation.
+
+Evaluation proved to be a tricky part of the project. While its importance was understood, my methodology was 
+underdeveloped and so I was unable to incrementally evaluate my progress. Instead, much of the project was benchmarked 
+all at once during the writeup, and this made fixing critical performance bugs more difficult.
+
+\section{Future work}
+
+Listed are shortcomings of the analysis tool that could be addressed in the future.
+
+\begin{itemize}
+  \item The GPU pipeline did not make full use of the available compute. The memory layout could be optimised for
+    contiguous storage, a double-buffered dispatch architecture implemented to hide overhead, and 
+    a hybrid system built that simultaneously multiplies matrices on CPU threads to maximise throughput.
+  \item The tool's memory usage is unbounded and problematic.
+    More work could be done to ensure that the maximum memory usage is safely limited 
+    during analysis of realistic traces of trillions of dynamic instructions.
+  \item I/O and parsing form a sequential bottleneck for the analysis tool when loading the initial expression. 
+    An alternative binary-based format could be developed to speed up loading and reduce the bottleneck.
+  \item The tool only tracked register dependencies. While this is still useful for smaller subtraces that keep their 
+    working set in registers, programs will often spill registers to memory. This happened with all the sample traces,
+    and so reported ILP limits were higher than actual values. The impact of the data-driven optimisations could be
+    assessed on more complex program traces involving memory dependencies.
+\end{itemize}
+
+Overall, the project achieved its goals, and I think it was an interesting project, bridging gaps between concepts in 
+processor design, graph theory, pattern exploitation and parallel computing.

@@ -1,0 +1,359 @@
+\chapter{Evaluation}
+
+\section{Methodology}
+
+The analysis tools were benchmarked on the program execution traces described in \ref{prep:datasets}.
+Benchmarks were executed locally on my own laptop, with the following hardware specs:
+\begin{description}
+  \item[CPU:] 12th Gen Intel(R) Core(TM) i7-12700H.
+  \item [RAM:] 16GiB LPDDR5 @ 6000MT/s
+  \item [GPU:] Intel(R) Iris(R) Xe Graphics. 96 Compute Units @ 1.4GHz
+  \item [Drive:] WD\_BLACK SN770 1TB NVMe drive
+\end{description}
+
+The CPU is a heterogeneous architecture, with 6 2-way SMT-capable performance cores boosting to 4.7GHz, and 8 efficiency
+cores boosting to 3.5GHz. The benchmarks were executed without turbo boosting, to prevent throttling from overheating,
+which generates noisy results, and so P cores were limited to 2.3GHz, and E cores to 1.7GHz.
+
+Timings and metrics were collected with a custom metrics registry that recorded per-thread events, including nanosecond-level 
+timestamps, in local thread memory, before flushing to a CSV format at the end of execution. 
+
+Each configuration of parameters for a benchmark was executed 5 times, and then the median time reported, to mitigate 
+anomalies, including cold cache and noisy results.
+
+The evaluation will measure the system against the MoSCoW criteria defined in Table \ref{tbl:requirements-analysis}.
+
+\section{Algorithmic and data-driven optimisations}
+
+This section assesses the impact of the data-driven optimisations presented in Sections \ref{impl:matrices}
+and \ref{impl:fast-expr}, to assess the PE requirement from Table \ref{tbl:requirements-analysis}.
+Benchmarks are performed using the single-threaded 
+pipeline from Figure \ref{fig:single-threaded-pipeline}, in some cases with 
+components excluded to assess their impact.
+
+\subsection{Matrix multiplications} \label{eval:matrix-mults}
+
+We first evaluate our matrix implementations presented in Section \ref{impl:matrices}.
+This benchmark made use of the Google Benchmark framework, and executed multiplications on matrices of size 64x64 of 
+varying sparsity. The matrices were randomly generated, by generating $nni$ unique coordinates and assigning values to 
+them.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.6\textwidth]{graphs/matrix_nni_performance.png}
+  \caption{Comparing runtime of matrix multiplication approaches, for matrices of varying sparsity.}
+  \label{eval:fig:matrix-perf}
+\end{figure}
+
+Figure \ref{eval:fig:matrix-perf}
+shows our basic implementation has the worse performance overall. Swapping the order of our inner loops 
+improves performance, and taking advantage of sparsity through the optimisation mentioned in \ref{impl:traversal-order}
+massively reduces execution time for smaller $nni$. Introducing SIMD extensions speeds up the implementation for higher 
+$nni$ values, where contiguous values are more likely to appear and so are optimised by the vectorised computation.
+We can see that tiled multiplication introduces overhead and does not offer any benefit over our other dense matrix 
+implementation.
+
+The sparse matrix implementation offers better performance for $nni < 256$, but rapidly deteriorates for values above this, 
+and is close to the basic implementation for non-sparse matrices. Considering the distribution of sparsity in our datasets,
+shown in \ref{fig:matrix-sparsity}
+and Appendix \ref{apdx:nni-histograms}, sparse matrix multiplications 
+offer the best performance for CPU-based multiplications, and so are used in all following benchmarks.
+
+\subsection{Encoder performance and compression} \label{eval:encoder-perf}
+
+Evaluating the encoding strategies reveals a fundamental trade-off between the computational cost of frequency analysis 
+and the optimality of the resulting evaluation tree.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/encoder_time.png}
+  \caption{Comparing runtime of program on different datasets, for different encoder parameters, excluding block 
+  preprocessing and loop finding.}
+  \label{eval:fig:encoder-perf}
+\end{figure}
+
+Figure \ref{eval:fig:encoder-perf}
+shows off the execution time of the encoder and tree-reduction stages of the pipeline for various parameters.
+
+We immediately observe that the execution time curves for fixed pair counts are highly erratic and dataset-dependent.
+For instance, the optimal $p$ for cksum32 is vastly different from the optimal $p$ for sort.
+Fixing the number of pairs replaced per iteration is inherently brittle because it does not scale with the size or 
+entropy of the execution trace. Replacing $2^5$ pairs in a large, high-entropy trace may do close to nothing (wasting 
+time on frequency analyses), whereas replacing $2^5$ pairs in a small trace with lots of patterns may aggressively 
+combine matrices, destroying the compression ratio, therefore a "universal sweet spot" for $p$ does not exist.
+
+Compare this to the execution time curves for the variable parameter. They are much smoother and form a gentle U shape 
+across most datasets. The best execution time ranges between $r=0.5$ and $r=0.7$. Because this parameter scales with 
+the size and complexity of the expression, it balances the workload. 
+While the best performance is not as good as the fixed pair encoder, the dynamic threshold yields a more stable sweet 
+spot, regardless of the input program, as hypothesised in Section \ref{impl:variable-encoder}.
+
+The reason for the high execution times for $p=1$ shown in Figure \ref{eval:fig:encoder-perf}
+can be visualised further in \ref{eval:fig:encoder-profile}
+The $p=1$ reduction profile shows periods of minimal reduction, where the algorithm carefully replaces 
+the most frequent matrix pair. While this is theoretically optimal, each iteration requires an expensive frequency 
+analysis, which dominates the algorithm runtime. This contrasts heavily to reduction profiles of $p=256$ and $r=0.4$,
+which plunge steeply. They achieve slightly worse compression ratios, but do so with one to two orders of magnitude fewer 
+frequency analyses.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/encoder_compression.png}
+  \caption{Comparing compression ratio of encoder on different datasets, for different encoder parameters, excluding block 
+  preprocessing and loop finding.}
+  \label{eval:fig:encoder-comp}
+\end{figure}
+
+Figure \ref{eval:fig:encoder-comp}
+shows the compression ratio achieved by the encoding stage for each parameter.
+We can see that increasing the number/proportion of replacements per iteration reduces the efficiency of the encoder,
+as the algorithm is forced to group sub-optimal, lower-frequency pairs, resulting in a poorer evaluation tree. This 
+is particularly apparent for the variable pair encoder, as the replacement count increases aggressively in later 
+iterations as larger patterns are exploited.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/encoder_time_loop.png}
+  \caption{Comparing runtime of program on different datasets, for different encoder parameters, including block 
+  preprocessing and loop finding.}
+  \label{eval:fig:encoder-block-loop-perf}
+\end{figure}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/encoder_compression_loop.png}
+  \caption{Comparing runtime of program on different datasets, for different encoder parameters, including block 
+  preprocessing and loop finding.}
+  \label{eval:fig:encoder-block-loop-comp}
+\end{figure}
+
+Figures \ref{eval:fig:encoder-block-loop-perf}
+and \ref{eval:fig:encoder-block-loop-comp}
+show off the encoder performance and compression after the block preprocessing and loop-finding optimisations are applied.
+Compared to Figures \ref{eval:fig:encoder-perf} 
+and \ref{eval:fig:encoder-comp}
+we can see that the execution time and compression drops by an order of magnitude, and the curves flatten out considerably. 
+Variable encoder performance is now comparable to that of the fixed pair encoder.
+This shows that the block preprocessing successfully reduces the size of the expression, and the fast loop finder 
+successfully collapses the massive loop structures (like the simple loops of cksum and cksum32) before the encoder sees
+the data. Because the encoder is now working on a reduced skeleton of the expression, the penalty for picking a sub-optimal 
+parameter is heavily mitigated, increasing the robustness of the algorithm.
+
+Figure \ref{eval:fig:encoder-profile} 
+also shows the impact of block-preprocessing and fast loop finding. For highly repetitive traces like 
+cksum and cksum32 the optimisations instantly collapse the expression, allowing the encoder to begin its work on an
+expression that is already a fraction of the size. This effectively skips the early, slow iterations required to
+compress the loop structures.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=1\textwidth]{graphs/encoder_profile.png}
+  \caption{Comparing reduction behaviour of encoder on different datasets, for representative parameters.}
+  \label{eval:fig:encoder-profile}
+\end{figure}
+
+\subsection{Single-threaded pipeline}
+
+This section evaluates the single-threaded pipeline shown in Figure \ref{fig:single-threaded-pipeline},
+compared to the same pipeline without the block preprocessing and fast loop finding stages.
+
+\begin{table}[ht]
+\centering
+% Shrink the font slightly to ensure it fits the margins
+\small 
+% Reduce the space between columns slightly
+\setlength{\tabcolsep}{4pt} 
+
+\begin{tabular}{l | c c | c c c | c c c c}
+\toprule
+& \multicolumn{2}{c|}{\textbf{Base Encoder}} 
+& \multicolumn{3}{c|}{\textbf{+ Block Prep}} 
+& \multicolumn{4}{c}{\textbf{+ Fast Loop Finder}} \\
+\cmidrule(lr){2-3} \cmidrule(lr){4-6} \cmidrule(lr){7-10}
+\textbf{Dataset} & 
+\textbf{PE} & \textbf{FR} & 
+\textbf{BP} & \textbf{PE} & \textbf{FR} & 
+\textbf{BP} & \textbf{LF} & \textbf{PE} & \textbf{FR} \\
+\midrule
+cksum   & 10,876 & 20,413 & 15,858 & 2,082 & 4,367 & 15,858 & 434 & 1,332 & 4,105 \\
+cksum32 & 10,740 & 21,074 & 15,851 & 2,134 & 4,235 & 15,851 & 472  & 1,360 & 4,045 \\
+factor  & 99,764 & 697,842 & 17,429 & 71,156 & 670,298 & 17,429 & 7,988 & 73,266 & 687,417 \\
+sha1sum & 15,350 & 21,411 & 18,585 & 2,326 & 4,488 & 18,585 & 581 & 1,478 & 4,695 \\
+shuf    & 15,750 & 28,958 & 17,776 & 5,118 & 9,186 & 17,776 & 3,578 & 3,714 & 9,605 \\
+sort    & 20,118 & 31,922 & 19,270 & 5,404 & 14,003 & 19,270 & 9,842 & 4,190 & 14,203 \\
+\bottomrule
+\end{tabular}
+\caption{Breakdown of matrix multiplications across pipeline configurations, using variable encoder with $r=0.4$.
+  \textbf{BP}: Block Preprocessing, \textbf{LF}: Loop Finder, \textbf{PE}: Pair Encoding, \textbf{FR}: Final Tree Reduction.}
+\label{tbl:multiplication-breakdown-full}
+\end{table}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=1\textwidth]{graphs/pipeline_optimization.png}
+  \caption{Comparing the speedup for block preprocessing and fast loop finding, using variable encoder with $r=0.4$}
+  \label{eval:fig:single-thread-speedup}
+\end{figure}
+
+Figure \ref{eval:fig:single-thread-speedup}
+quantifies the huge impact of block preprocessing on execution time. Across the board, execution time drops by 60\% to 
+80\%. This is primarily down to three different reasons:
+\begin{enumerate}
+  \item The loader iterates and caches at the block-level when loading the trace, reducing the amount of work it needs to do.
+  \item The size of the expression passed to the encoder is much smaller, reducing the cost of the $O(n\log n)$ frequency 
+    analyses. This can be seen in Table \ref{tbl:multiplication-breakdown-full},
+    where the number of multiplications the encoder and final reduction make falls.
+  \item Because matrices represent block-level dependencies, the huge 1-block loops of cksum, cksum32, and sha1sum can be rapidly 
+    collapsed using the first run-length encoding pass in Figure \ref{fig:single-threaded-pipeline}.
+    This almost entirely eliminates the encoding and reduction phases, and loading the trace becomes the primary bottleneck.
+\end{enumerate}
+
+On the other hand, the fast loop finding stage delivers mixed results. Execution time is largely unchanged by including 
+fast loop finding for cksum, cksum32, and sha1sum. This is backed up by Table \ref{tbl:multiplication-breakdown-full},
+where the loop finder does very few multiplications, as most of the expression is already reduced by the RLE stage.
+Performance improves for the shuf and factor traces, but interestingly, the total number of multiplications done increases.
+The greedy nature of the loop finder led to a worse evaluation order, but performing more 
+multiplications is cheaper compared to the cost of the frequency analyses in the encoding stage.
+This trade-off does not translate to sort, however, as the performance is notably worse, and many more multiplications 
+are made. This implies that the greedy approach has much worse efficiency for this trace, and the complex 
+branch structure of the underlying merge sort algorithm is better suited to a pure pair encoding approach.
+
+Because the loader stage involves sequential I/O work, this becomes the primary sequential bottleneck for our analysis tool.
+Amdahl's law \cite{amdahl} states that speedup is limited by this sequential part of the pipeline, and so our further
+parallel optimisations will be limited by the large loader stage.
+
+Overall, I believe this single-threaded pipeline satisfies the success criteria for the PE requirement in Table
+\ref{tbl:requirements-analysis}.
+
+\section{Concurrency and GPU analysis}
+
+This section assesses the impact of the parallel optimisations presented in Sections \ref{impl:parallelisation}
+and \ref{impl:gpu}, to assess the the MP and GA project requirements from Table \ref{tbl:requirements-analysis}.
+
+Benchmarks are performed using the multi-threaded pipeline from Figure \ref{fig:multi-threaded-pipeline}.
+We mostly focus on benchmarks performed on the factor trace, as it required the largest number of multiplications to reduce the expression.
+
+\subsection{Concurrency} \label{eval:concurrency}
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_scaling.png}
+  \caption{Multi-threaded pipeline component runtime for various thread configurations.}
+  \label{eval:fig:multi-thread-speedup}
+\end{figure}
+
+Figure \ref{eval:fig:multi-thread-speedup} 
+immediately shows the impact of introducing an asynchronous architecture on the runtime of the multi-threaded pipeline components.
+By just scaling to 4 matrix compute threads, runtime drops from 9s down to $\sim$2.5s, and further, albeit less significant improvements 
+are seen when increasing the number of encoding and compute threads. This satisfies the success criteria for the MP requirement.
+
+Interestingly, the chunk multiplier only has a small impact on performance. The expression is split up into a number of chunks equal 
+to the number of encoding threads multiplied by the chunk multiplier.
+Section \ref{impl:enc-scaling} theorised that splitting into several chunks would equalise the work 
+done by each thread, and while this does result in a small improvement, it is likely that the impact is minimal as the previous stages in 
+the pipeline have already simplified many patterns, leaving behind a more homogeneous expression.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_lag.png}
+  \caption{Lag time for various thread configurations.}
+  \label{eval:fig:multi-thread-lag}
+\end{figure}
+
+To understand the large drop in runtime, we can examine the lag time of the pipeline, which is the time between the 
+parallel encoder stage completing the evaluation order, and the expression being completely reduced. Figure \ref{eval:fig:multi-thread-lag}
+shows that increasing the number of compute threads relative to the number of encoding threads almost eliminates this lag time, 
+and so choosing the right number of threads is a balancing act. The encoding threads provide work for the compute threads, and so 
+we need enough compute threads to keep up with the work, and enough encoding threads to ensure that the compute threads do not starve.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_throughput.png}
+  \caption{Matrix multiplication throughput for various thread configurations.}
+  \label{eval:fig:multi-thread-throughput}
+\end{figure}
+
+% \begin{figure}[htbp]
+%   \centering
+%   \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_overhead.png}
+%   \caption{Dependency management overhead.}
+%   \label{eval:fig:multi-thread-overhead}
+% \end{figure}
+
+We also see in Figure \ref{eval:fig:multi-thread-throughput}
+an order of magnitude increase in the throughput between 1 and 12 compute threads. Dependency management maintains a
+fairly constant overhead of 20\%, so this approach is scaling well with regards to the 
+shared data structures involved.
+
+However, the multiplication throughput, along with the total runtime in Figure \ref{eval:fig:multi-thread-speedup}
+harshly tapers off beyond the 4:12 thread configuration. This could be caused by several reasons.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_compression.png}
+  \caption{Encoder compression performance changing with chunk size.}
+  \label{eval:fig:multi-thread-compression}
+\end{figure}
+
+Section \ref{impl:enc-scaling} explains that increasing the number of chunks (thereby reducing each chunk's size)
+damages the encoder's efficiency. Figure \ref{eval:fig:multi-thread-compression} backs this 
+up, with a decrease in compression ratio from 7 to 5 representing a 40\% increase in the number of multiplications required to reduce the final 
+expression. This may contribute to poor scaling with more chunks, but since the lag time is still close to zero in this case, the compute threads are still 
+able to keep up with the increased number of queued multiplications.
+
+I believe the issue arises from hardware limits - particularly the thread limit and the heterogeneous architecture. With the higher thread configuration of 5:15,
+the CPU becomes oversubscribed. The Intel i7-12700H supports a maximum of 20 hardware threads. By using 20 threads for asynchronous compute, alongside the main thread 
+and other OS threads running in the background, the CPU can no longer allow a thread to run uninterrupted on a core, and so the share of the CPU time a thread 
+receives is diminished. We may also become limited by the memory bandwidth; with 15 cores doing multiplication operations, the shared L3 cache is quickly saturated.
+Additionally, Intel's heterogeneous architecture of performance and efficiency cores further reduces the return on investment. As the number of threads used increases, 
+more of these have to run on less powerful efficiency cores, and so the scaling curve flattens.
+
+\subsection{GPU analysis}
+
+\begin{table}[ht]
+  \centering
+\begin{tabular}{lcc}
+  \toprule
+  \textbf{Section} & \textbf{Time taken (ms)} & \textbf{Percentage} \\
+  \midrule
+  Pack    & 8.534 & 26.1\% \\
+  Send    & 2.149 & 6.58\% \\
+  Compute & 11.56 & 35.4\% \\
+  Receive & 2.931 & 8.97\% \\
+  Unpack  & 6.970 & 21.3\% \\
+  Total   & 32.67 &  100\% \\
+  \bottomrule
+\end{tabular}
+\caption{GPU timeline breakdown for a batch of 4096 multiplications.}
+\label{tbl:gpu-breakdown}
+\end{table}
+
+Table \ref{tbl:gpu-breakdown} presents the 
+execution timeline for a sample batch of 4096 matrix multiplications dispatched to the OpenCL kernel described in 
+Algorithm \ref{alg:gpu-kernel}. The total time of 32.67ms yields a throughput of approximately 
+125,374 multiplications per second. Comparing this to the CPU multiplication scaling in Figure \ref{eval:fig:multi-thread-throughput},
+this matches the throughput of a single CPU thread, and is eclipsed by the full use of 12-15 threads. This stems from 
+the hardware choice and the dispatcher architecture.
+
+The benchmark was executed on an Intel Iris Xe integrated graphics chip, which is a heavily constrained piece of hardware. 
+Not only does it share the power budget, thermal limits, and memory bandwidth with the host CPU, it is also significantly 
+weaker than other dedicated GPU options, relative to the CPU's performance.
+
+The table also reveals a major bottleneck in the timeline. Data management and transfer overhead forms approximately 
+65\% of the execution time. As matrices are allocated dynamically on the heap (see Section \ref{impl:matrix-approach}),
+their addresses are not contiguous, and so the pack and unpack stages force the CPU to chase scattered pointers and 
+individually copy each matrix's data.
+This is exacerbated by the use of a synchronous pipeline. Implementing a double-buffered approach, would allow the CPU 
+to pack and transfer batch $B$ while the GPU computes the previously prepared batch $A$. This effectively hides the data management 
+overhead behind computation.
+
+The success criteria for the requirement GA in Table \ref{tbl:requirements-analysis}
+has been met, as we did successfully offload multiplications to the GPU, although throughput never overtook overhead.
+
+% \section{Memory profiling}
+%
+% bar chart maximum resident set size 
+%
+% line graph heap memory allocation
+
+\section{Holistic Pipeline}

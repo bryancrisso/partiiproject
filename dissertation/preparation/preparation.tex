@@ -1,0 +1,527 @@
+\chapter{Preparation}
+
+This chapter outlines the work done in the setup of the project. Section \ref{prep:understanding-approach}
+explains the theoretical background of the matrix-based approach. Section \ref{prep:datasets} 
+explores the data on which the analysis tool is executed. Finally, Section \ref{prep:design}
+outlines the software engineering methodologies used, project requirements, and chosen tooling.
+
+\section{Understanding the matrix-based approach} \label{prep:understanding-approach}
+
+{\footnotesize\itshape
+The applications of tropical semirings to dynamic dependency graphs, particularly the sections on
+register-only longest chains (\ref{prep:register-only-chains})
+and alternative graph structures (\ref{prep:alternative-matrix-struct})
+are closely adapted from the methodologies established by Chadwick \cite{Chadderz}.}
+
+\subsection{The tropical semiring (max-plus algebra)}
+
+Tropical analysis is the study of the tropical semiring.
+There are two variants of the tropical semiring, namely the min-plus and max-plus algebras.
+We will use the max-plus convention to apply to \textit{longest} paths in directed acyclic graphs.
+
+ 
+% Define tropical semiring and operations 
+
+\begin{definition}[Semiring] \label{def:semiring}
+  A semiring \cite{Wandsnider2020} is a set $R$ along with two operations, addition (+) and multiplication ($\cdot$), which satisfy the 
+  following axioms:
+
+  \begin{enumerate}
+    \item Addition is associative and commutative.
+    \item Multiplication is associative.
+    \item There exists an additive identity, which we usually call $\mathbb{0}$. Additionally, $\mathbb{0}$ annihilates 
+      $R$, that is, for all $x \in R$, $\mathbb{0} \cdot x = x \cdot \mathbb{0} = \mathbb{0}$.
+    \item There exists a multiplicative identity, which we usually call $\mathbb{1}$.
+    \item Multiplication left and right distributes over addition.
+  \end{enumerate}
+\end{definition}
+
+\begin{definition}[Tropical semiring]
+  The tropical semiring \cite{Wandsnider2020}, or max-plus algebra, is the object $(\mathbb{R} \cup \{-\infty\}, \oplus, \odot)$ with operations 
+defined as:
+
+$$
+\begin{aligned}
+  a\oplus b &= \max(a,b) \\
+  a\odot b &= a+b
+\end{aligned}
+$$
+
+\end{definition}
+
+The tropical semiring satisfies the axioms of a semiring from Definition \ref{def:semiring}. It
+is not a ring as the max operator does not have an inverse.
+
+% Define matrix multiplication in the context of the tropical semiring
+
+\begin{definition}[Matrix operations in the tropical semiring] \label{def:mat-mul}
+For any $n\times n$ matrices $X = (x_{ij})$ and $Y = (y_{ij})$, the entries of $U = X \oplus Y$ and $V = X \odot Y$
+are calculated as \cite{krivulin2012maxplusalgebraapproachmodelling}
+
+$$
+u_{ij} = x_{ij} \oplus y_{ij}, \text{ and } v_{ij} = \displaystyle\sum_{k=1}^{n} \! {}_{\oplus} x_{ik} \odot y_{kj}
+$$
+
+\end{definition}
+
+The matrix operations $\oplus$ and $\odot$ are associative owing to the commutativity and associativity of the underlying 
+addition operator, and that the multiplication operator distributes over addition.
+
+The Strassen algorithm \cite{STRASSEN1969} is a matrix multiplication algorithm with a better asymptotic complexity 
+($O(n^{\log_2 7})$) than the above definition ($O(n^3)$). However, using Strassen's algorithm requires an additive 
+inverse, which does not exist in the tropical semiring (as $\max$ has no inverse),
+and so it is not applicable to our particular use-case.
+
+\subsection{Longest paths in Directed Acyclic Graphs}
+
+
+% Show how this applies to the longest-path problem
+
+As established previously, finding the length of the critical path in a program results in finding the longest path
+in its DDG. It is noted that the max-plus version of the tropical semiring is applicable to finding the longest path
+in a graph \cite{krivulin2012maxplusalgebraapproachmodelling}.
+
+One algorithm \cite{Chadderz} to find the longest path between nodes $A$ and $B$ in a graph is to recursively take the 
+maximum of all path lengths from all neighbours of $A$ to $B$, plus the cost of the edge from $A$ to the chosen
+neighbour. We can see that this amounts to a Bellman recursion equation \cite{Bellman:DynamicProgramming}
+involving only the max and plus operators: 
+
+$$
+v(A,B) = 
+\begin{cases}
+0 &\text{ if } A = B \\
+\max_{\forall C . A \to C} \{\mathrm{weight}(A \to C) + v(C,B))\}, &\text{ otherwise } \\
+\end{cases}
+$$
+
+We can observe that, if we have an adjacency matrix (where the cells in that matrix represent the cost of the edge
+between the pair of nodes in that row/column, and $-\infty$ if there is no edge), performing tropical semiring 
+matrix multiplication of this matrix with itself corresponds to one step of our longest-path algorithm.
+
+Formally we consider an adjacency matrix $X^{2} = X \odot X$, and denote its entries by $x_{ij}^{(2)}$. We have that $x_{ij}^{(2)} = p$
+if and only if there exists at least one path of length $p$ from node $i$ to node $j$ in the corresponding graph,
+consisting of at most two edges, and that path is the longest such path. This extends to any integer exponent $q$
+\cite{krivulin2012maxplusalgebraapproachmodelling}.
+
+\begin{theorem}[Matrix exponentiation results in longest paths] \label{thm:mat-exp-longest-paths}
+
+For any integer $q>0$, the matrix
+$X^{q}$ has the entry $x_{ij}^{(q)} = p$ only if there is a path of length $p$ with at most $q$ edges from $i$ to $j$,
+and that path is the longest such path.
+
+\begin{proof}
+  We proceed by induction on $q$, the maximum number of edges in the path.
+
+  \textbf{Base case ($q = 1$):} Consider the matrix $X^1=X$. By the definition of an adjacency matrix, the entry  
+  $x_{ij}^{(1)}$ is exactly the weight of the direct edge from node $i$ to node $j$. If no such edge exists, then 
+  $x_{ij}^{(1)} = -\infty$. Thus, the base case holds: the entries represent their longest paths consisting of at most 
+  one edge.
+
+  \textbf{Inductive step:} Assume the claim holds for $q$. That is the matrix $X^{q}$ has entries $x_{ij}^{q}$ 
+  representing the longest path from $i$ to $j$ using at most $q$ edges.
+  We show that the claim holds for $q+1$. By definition, $X^{q+1} = X^{q} \odot X$
+  The entry $x_{ij}^{(q+1)}$ is calculated as:
+  $$x_{ij}^{(q+1)} = \sum_{k=1}^{n} \! {}_{\oplus} (x_{ik}^{(q)}\odot x_{kj})$$
+  Translating this to the original operators:
+  $$
+  x_{ij}^{(q+1)} = \max_{1 \leq k \leq n} (x_{ik}^{(q)} + x_{kj})
+  $$
+  This lines up perfectly with the dynamic programming approach to finding the longest path. To find a longest path from
+  node $i$ to node $j$, it checks every intermediate node $k$. It takes the longest known path from $i$ to $k$ of at most 
+  $q$ edges (by the inductive hypothesis), and adds the direct edge cost from $k$ to $j$. By taking the maximum over all 
+  intermediate nodes $k$, we find the absolute longest path from $i$ to $j$ of at most $q+1$ edges. Thus the claim holds 
+  for all integers $q>0$.
+\end{proof}
+
+So, an adjacency matrix raised to the power infinity will converge to the longest distance matrix for that whole graph.
+  
+\end{theorem}
+
+
+For example, consider the graph:
+\begin{center}
+  \input{diagrams/graph1.tex}
+\end{center}
+
+The corresponding adjacency matrix would be:
+$$
+X = 
+\begin{pmatrix}
+  0 & 1 & 3 & -\infty \\ 
+  -\infty & 0 & 3 & -\infty \\ 
+  -\infty & -\infty & 0 & 1 \\
+  -\infty & -\infty & -\infty & 0 \\
+\end{pmatrix}
+$$
+
+So, in the tropical semiring:
+
+$$
+\begin{aligned}
+  X^{2} &= 
+  \begin{pmatrix}
+    0 & 1 & 4 & 4 \\ 
+    -\infty & 0 & 3 & 4 \\ 
+    -\infty & -\infty & 0 & 1 \\ 
+    -\infty & -\infty & -\infty & 0 \\
+  \end{pmatrix} \\ 
+  X^{3} &= 
+  \begin{pmatrix}
+    0 & 1 & 4 & 5 \\ 
+    -\infty & 0 & 3 & 4 \\ 
+    -\infty & -\infty & 0 & 1 \\ 
+    -\infty & -\infty & -\infty & 0 \\
+  \end{pmatrix} \\ 
+        & = X^{4} = X^{5} = \dots = X^{\infty}
+\end{aligned}
+$$
+
+This corresponds to the longest distance matrix between all pairs of nodes.
+
+\subsection{Forming the columnar DDG} \label{prep:register-only-chains}
+
+As defined in Section \ref{intro:methodology}, a standard DDG represents 
+each dynamically executed instruction as a single node. While this formulation is intuitive for visualising the program 
+flow, the structure of the graph is arbitrary, and we would wish to impose a more rigid structure to allow for future
+optimisations, as outlined in Section \ref{prep:alternative-matrix-struct}.
+To do this, we can encode the transformation of the machine's dependency state from one cycle to the next.
+We introduce a new expanded graph structure, which has one node per register per dynamic instruction.
+
+Let us first consider the dependencies for instructions only affecting registers.
+Since each instruction has a fixed set of registers which it accesses, it has a fixed dependency structure, and so each 
+instruction in the program trace will have a fixed subgraph in the expanded DDG encoding its dependency information.
+
+For example, we could encode the dependencies for the instruction \verb|R0 = ADD R1, R2| as the subgraph:
+
+\begin{center}
+  \input{diagrams/add-deps.tex}
+\end{center}
+
+The instruction reads from \verb|R1| and \verb|R2| and uses these values to produce a new value stored in \verb|R0|.
+On the left of the subgraph is the register state before the instruction execution; on the right is after. The 
+characteristics of the subgraph are as follows:
+\begin{itemize}
+  \item Since the value \verb|R0|$_1$ is dependent on \verb|R1|$_0$ and \verb|R2|$_0$, there are cost-1 edges in the graph 
+    from \verb|R1|$_0$ and \verb|R2|$_0$ to \verb|R0|$_1$, extending the dependency chain from the source registers to the 
+    destination by 1 cycle.
+
+  \item The values in \verb|R1| and \verb|R2| are unchanged by the instruction, so their respective states have 0-cost 
+    edges between them. This allows dependency chains from the source registers to `skip over' this particular instruction 
+    that does not affect them.
+
+  \item Finally, since the value in \verb|R0| is modified, there is no 0-cost edge between the respective states, as the 
+    old value is discarded and a new chain starts at the new value.
+\end{itemize}
+
+
+The full DDG will consist of several of these subgraphs, horizontally glued together, with one new set of dependency edges 
+for each additional instruction.
+
+The true critical path often involves memory operations, as a value may be copied to memory from a register, then 
+potentially millions of instructions later that value is read into a register and used, contributing to a data dependency,
+yet we have not accounted for this here. While Chadwick \cite{Chadderz} has suggested approaches to track through-memory
+dependencies, this project will not do so, as they require dealing with much larger matrices or significantly complicating 
+the structure of the datasets, which fell outside of the project's scope.
+
+Because realistic program traces often contain trillions of instructions, constructing a full adjacency matrix is 
+computationally unfeasible.
+
+\subsection{Alternative graph representation} \label{prep:alternative-matrix-struct}
+
+Section \ref{prep:register-only-chains} stated that constructing a full adjacency 
+matrix is computationally unfeasible for realistic program traces, as they contain trillions of dynamic instructions. 
+
+We propose an alternative representation to the full adjacency matrix.
+There is a particular structure in the DDGs we construct: they are more long than wide.
+In the DDG, edges \textit{only} exist between adjacent columns, and so a full adjacency matrix $X$ is mostly filled
+with $-\infty$. We can instead model a DDG as a sequence of adjacent columns. 
+
+Consider an arbitrary graph with the property of being more long than wide:
+
+\begin{center}
+  \input{diagrams/graph2.tex}
+\end{center}
+
+To utilize column-wise matrices for longest-path calculations, the graph must first be padded. We introduce a set of 
+`dummy' nodes to the first and last columns, connected by 0-cost edges. This guarantees that any local path within the 
+interior of the graph is extended to touch both the initial and final columns.
+
+\begin{center}
+  \input{diagrams/graph2-extended.tex}
+
+{\tiny dashed edges are 0 cost}
+\end{center}
+
+Now we can represent the graph with one matrix per adjacent-column pair, encoding the connectivity between those two
+columns. The connectivity between the first two columns is represented as:
+
+\[
+  X_{1,2} = 
+  \begin{pmatrix}
+  0 & 0 & 0 & -\infty \\
+  -\infty & 1 & 4 & 0 \\
+  -\infty & -\infty & -\infty & 0 \\
+  -\infty & -\infty & -\infty & 0 
+  \end{pmatrix}
+\]
+
+where the $m$th row and $n$th column of this matrix represent the connection from the $m$th node in the first column of 
+the graph to the $n$th node in the second column of the graph.
+
+The remaining two column pairs are represented as:
+
+\[
+  \begin{aligned}
+    X_{2,3} &= 
+    \begin{pmatrix}
+    0 & 0 & 0 & -\infty \\
+    -\infty & 1 & -\infty & 0 \\
+    -\infty & -\infty & -\infty & 0 \\
+    -\infty & -\infty & -\infty & 0 
+    \end{pmatrix} \\
+    X_{3,4} &= 
+    \begin{pmatrix}
+    0 & 0 & 0 & -\infty \\
+    -\infty & 1 & -\infty & 0 \\
+    -\infty & 2 & 2 & 0 \\
+    -\infty & -\infty & -\infty & 0 
+    \end{pmatrix}\\
+  \end{aligned}
+\]
+
+These matrices are each $4 \times 4$ whereas a full adjacency matrix for the original graph would be $7 \times 7$.
+We can see that the column-wise matrices will use less storage than the adjacency matrix (48 integers vs 49 integers),
+and this alternative becomes increasingly favourable as the graph gets longer.
+
+
+In the tropical semiring, computing the matrix product
+
+\[
+  X_{3,4} \odot X_{2,3} \odot X_{1,2} = \begin{pmatrix}
+  0 & 2 & 2 & 1 \\
+  -\infty & 3 & -\infty & 4 \\
+  -\infty & -\infty & -\infty & 0 \\
+  -\infty & -\infty & -\infty & 0 
+\end{pmatrix}
+\]
+yields a matrix representing the longest path from the $m$th node in the first column the $n$th node in the final 
+column of the graph. Because we have ensured every path in the graph connects to the first and last column, the largest 
+individual value in this matrix is the length of the longest path in the graph, namely the path of length 4 connecting 
+from $a$ in the first column, to $m_4$ in the final column, via $d$ and $m_3$.
+
+The correctness of the column-wise approach for calculating longest paths in graphs is a corollary that follows directly 
+from Theorem \ref{thm:mat-exp-longest-paths}.
+
+\begin{corollary}[Correctness of the column-wise formulation]
+  In a standard adjacency matrix $X$, computing $X^{q}$ checks every possible intermediate node 
+  $k$ in the entire graph to find paths of length $q$, as shown by Theorem \ref{thm:mat-exp-longest-paths}.
+
+  In a column-wise representation of the DDG, when we multiply adjacent column matrices (e.g., $X_{2,3} \odot X_{1,2}$),
+  we are simply performing the exact operations for finding the longest path between columns 1 and 3,
+  but restricted only to the intermediate nodes $k$ located in column $2$.
+  This is valid as edges in the DDG only exist between adjacent columns.
+
+  Because the padding of 0 cost edges ensures every path spans from the first column to the final column, multiplying 
+  all consecutive column matrices sequentially computes the maximum path length across the entire graph.
+\end{corollary}
+
+This defines the final shape of the data that we will be working on as a mathematical expression consisting of a
+series of matrix multiplications. The corollary theoretically satisfies the success criteria for the MPF requirement 
+in Table \ref{tbl:requirements-analysis}, and
+tool outputs in Appendix \ref{apdx:outputs} verify this operationally.
+
+We can use the column-wise approach to represent the alternative DDG structure from Section \ref{prep:register-only-chains}.
+Because each dynamic instruction has a static set of dependencies, represented by a matrix, and because there are many 
+more dynamic instructions in the DDG than the number of static instructions in the program, we will see frequent reuse 
+of matrices in the equation, allowing us to find and exploit common patterns, and further reducing the actual memory 
+required to store the DDG.
+
+\section{Datasets} \label{prep:datasets}
+
+I selected execution traces from several GNU coreutils programs (v8.32) \cite{coreutils} to benchmark the analysis tool, all executed on 
+an AArch64 architecture. Execution traces are lists of the instructions executed during an execution of a program.
+In our case, the execution traces are given as a series of branches, which can be interpreted as a series of basic 
+blocks. A basic block is a series of instructions executed sequentially without a branch.
+
+\subsection{Dataset listing} 
+
+The chosen program executions are:
+
+\begin{itemize}
+  \item \verb|cksum < urandom_1MiB.bin|
+
+  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/cksum-invocation.html}{coreutils cksum utility}}} ,
+  calculating the CRC of a 1MiB file of random bytes.
+
+  \item \verb|cksum < urandom_32MiB.bin|
+
+  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/cksum-invocation.html}{coreutils cksum utility}}} ,
+  calculating the CRC of a 32MiB file of random bytes.
+
+  \item \verb|factor 9696593808888933181586|
+
+  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/factor-invocation.html}{coreutils factor utility}}} ,
+  factorising 9696593808888933181586.
+
+  \item \verb|sha1sum < urandom_1MiB.bin|
+
+  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/sha1sum-invocation.html}{coreutils sha1sum utility}}} ,
+  computing the SHA1 message digest of a 1MiB file of random bytes.
+
+  \item \verb|sort < urandom_2000_lines.txt|
+
+  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/sort-invocation.html}{coreutils sort utility}}} ,
+  sorting a 2000 line text file of hexadecimal digits encoding random bytes.
+
+  \item \verb|shuf --random-source=urandom_1MiB.bin urandom_34953_lines.txt|
+
+  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/shuf-invocation.html}{coreutils shuf utility}}} ,
+  shuffling a 34953 line text file of hexadecimal digits encoding random bytes.
+\end{itemize}
+
+The source data can be found at \url{https://www.cl.cam.ac.uk/~awc32/cam-only/tropical-ilp-p2p/}. The traces were 
+collected by Alexandra Chadwick (\textit{awc32}) using custom tooling.
+
+\subsection{Data properties}
+
+Many of the optimisations in this project revolve around exploiting patterns in the datasets by varying evaluation orders 
+and memoising intermediate results. To motivate these optimisations, we can perform an analysis on the execution traces 
+to quantify the extent of these data patterns.
+
+%TODO: Verbatim
+We introduce terminology for distinguishing various types of repeating patterns \cite{PMRepeats}.
+Repeating substrings (or \textit{repeats}) in a string can be
+\begin{itemize}
+  \item \textit{tandem} repeats where successive repeat substrings immediately follow each other. They characterise 
+    loops in a program trace.
+  \item \textit{split} repeats where repeat substrings are separated by other symbols. These can characterise repeated 
+    function calls where each call has the same dependency information.
+  \item \textit{overlapping} repeats where repeat substrings overlap.
+\end{itemize}
+
+We can further refine the terminology for tandem repeats. A tandem repeat is \textit{primitive} if it is itself 
+not composed of tandem repeats of another substring. A set of tandem repeats is \textit{maximal} if there is no identical 
+substring immediately preceding or succeeding the sequence of tandem repeats. We refer to primitive and maximal tandem 
+repeats as \textit{PM repeats}, and throughout the project, `loops' will refer to PM-repeats in the execution trace.
+
+Table \ref{tbl:trace-analysis} summarises a trace analysis on the 
+selected datasets, carried out with a tool based on the loop finder in Section \ref{impl:loop-finder}. 
+We define \textbf{Period} as the length of the repeated substring in basic blocks, \textbf{Average Consecutive Iterations (ACI)} as the 
+mean number of times the period of a pattern repeats without interruption, and \textbf{Total Iterations (TI)} as the total number 
+of times the period of a pattern exists in the program trace. \textbf{ACI} and \textbf{TI} correspond to the length of a PM-repeat and 
+the total length of all PM-repeats with the same repeating substring respectively.
+
+\begin{table}[ht]
+\begin{center}
+\begin{tabular}{lcccccc}
+  \toprule
+  \textbf{Dataset} & \textbf{Instructions} & \textbf{Basic Blocks} & \multicolumn{4}{c}{\textbf{Biggest Pattern}} \\
+  \cmidrule(l){4-7}
+  & (Total) & (Total) & Period & ACI & TI & Coverage\\
+  \midrule
+  cksum   & 7526926   & 1068940  & 1  & 65535 & 1048560  & 98.1\% \\
+  cksum32 & 235132057 & 33580788 & 1  & 65535 & 33553920 & 99.9\% \\
+  factor  & 220632540 & 18074022 & 5  & 20    & 993556   & 27.5\% \\
+  sha1sum & 16994993  & 91070    & 1  & 3     & 49155    & 54.0\% \\
+  sort    & 10943690  & 1216990  & 17 & 2     & 7536     & 10.5\% \\
+  shuf    & 16361747  & 2147424  & 30 & 3     & 16007    & 22.3\% \\
+  \bottomrule
+\end{tabular}
+\end{center}
+\caption{Summary of trace analysis on the selected data.}
+\label{tbl:trace-analysis}
+\end{table}
+
+The table shows that all datasets
+exhibit a `largest pattern' covering a significant proportion of the trace. This pattern is built of several PM-repeats 
+with the same repeating substring, but separated/split by other symbols. We can deduce that each of the PM-repeats 
+corresponds to an invocation of the same loop, which executes for some varying number of iterations. Each invocation 
+of the loop is separated by other instructions, with their own varying dependency information.
+
+This pattern can be exploited in two ways:
+
+\begin{enumerate}
+  \item Consecutive repetitions of matrices can be quickly reduced down into a single matrix using a fast exponentiation algorithm.
+  \item The matrices making up one iteration of the loop can be multiplied together to obtain a singular matrix representing 
+    the dependency information for that single iteration. All other iterations of that loop body can then be replaced with 
+    the singular result matrix without any extra computation.
+\end{enumerate}
+
+\section{Project design} \label{prep:design}
+
+This section outlines the software engineering methodology adopted during implementation, specification of the 
+project requirements, and technical justification for the chosen tools.
+
+\subsection{Software engineering}
+
+I adopted the iterative spiral methodology for this project. Given the experimental nature of performance optimisation, 
+this methodology facilitated continuous cycles of planning, implementation, and evaluation, 
+where performance bottlenecks were identified to inform the next cycle.
+
+To maintain codebase integrity during high-frequency iterations, code was regularly committed and pushed to GitHub,
+using feature branches to implement large changes. Commits from branches were squashed upon merge to provide a clean, 
+linear history of major architectural milestones.
+
+\subsection{Project requirements}
+
+% Use a must-should-could pattern for several sections
+% MoSCoW
+
+Requirements are listed in Table \ref{tbl:requirements-analysis}
+and categorised by their priority, according to the MoSCoW method guidelines \cite{moscow}.
+
+\begin{table}[H]
+\centering
+\small % Slightly smaller font to fit more content comfortably
+\begin{tabularx}{\textwidth}{ll L L}
+    \toprule
+    \textbf{ID} & \textbf{Category} & \textbf{Requirement} & \textbf{Success Criteria} \\
+    \midrule
+    NB  & \textit{Must-have} & Naive Baseline Implementation & A valid reference implementation to provide a performance baseline for speedup calculations. \\
+    \addlinespace % Adds a tiny bit of breathing room between wrapped rows
+    MPF & \textit{Must-have}  & Matrix-Based Path Finding & Correctness verification: ensure the matrix approach yields identical results to the naive baseline. \\
+    \addlinespace
+    PE  & \textit{Must-have}  & Pattern Exploitation & Demonstrable reduction in redundant computations by identifying and optimising common patterns in the data. \\
+    \addlinespace
+    MP  & \textit{Should-have} & Multithreaded Parallelism & Achievement of performance scaling on multi-core CPU architectures using an asynchronous sub-problem approach. \\
+    \addlinespace
+    GA  & \textit{Could-have}  & GPU Acceleration & Successful offloading of matrix multiplications to an accelerator, identifying the point at which throughput overtakes overhead. \\
+    \addlinespace
+    MT  & \textit{Won't-have}  & Through-memory dependency tracking & Excluded from scope to focus on local hardware parallelisation.  \\
+    \bottomrule
+\end{tabularx}
+\caption{MoSCoW analysis of project requirements and success criteria.}
+\label{tbl:requirements-analysis}
+\end{table}
+
+\subsection{Project tooling}
+
+The choice of tools was driven by the need for low-level hardware transparency, balanced with architectural flexibility.
+
+C++ was selected as the primary programming language, for three critical reasons:
+
+\begin{enumerate}
+  \item It allows for fine-grained memory control, which is essential for performance-sensitive code, allowing for 
+    manual cache alignment and minimising overhead from garbage collection pauses.
+  \item It provides modern object-oriented paradigms, which allow for the use of design patterns to easily hot-swap 
+    different strategies for matrix multiplication and pattern exploitation.
+  \item It facilitates the use of SIMD (Single Instruction, Multiple Data) intrinsics for further low-level optimisation.
+\end{enumerate}
+
+While CUDA provides a highly optimized environment for Nvidia hardware, OpenCL was chosen for its cross-platform portability.
+This allowed for development and kernel debugging on integrated Intel graphics (laptop) before deploying to high-performance 
+Nvidia/AMD discrete GPUs for final benchmarking.
+
+\subsection{Starting point}
+
+I had not used C++ or OpenCL previously. While I had prior experience programming in C, there were still many concepts 
+I had to learn through internet resources or discussion with my supervisor. These included the C++ templates and concepts 
+features, multi-threading, and GPGPU programming through OpenCL.
+
+Part IA/IB courses provided general knowledge used when debugging issues, 
+familiarity with the theory behind the matrix approach, and information on the OpenCL programming model.
+Part II courses and modules, most notably Advanced Computer Architecture and Multicore Semantics \& Programming 
+respectively solidified my understanding of ILP and limit studies, and of multi-threaded programming.
+
+I used the datasets listed in Section \ref{prep:datasets} alongside custom tooling provided by Alexandra 
+Chadwick to generate information for the dependency matrices and branch structure of the trace.

@@ -1,0 +1,281 @@
+% Template for a Computer Science Tripos Part II project dissertation
+\documentclass[12pt,a4paper,twoside,openright]{report}
+\usepackage{setspace}
+\usepackage[pdfborder={0 0 0}]{hyperref}    % turns references into hyperlinks
+\usepackage[margin=25mm]{geometry}  % adjusts page layout
+\usepackage{graphicx}  % allows inclusion of PDF, PNG and JPG images
+\usepackage{verbatim}
+\usepackage{docmute}   % only needed to allow inclusion of proposal.tex
+\usepackage{booktabs} %For professional formatting of tables
+\usepackage[numbers]{natbib} %For formatting of references
+\usepackage[toc,page]{appendix}
+\usepackage{pdfpages} %For inserting PDF into latex source file
+\usepackage{listings}
+
+%User-introduced library and macros
+
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{amsmath}
+\usepackage{amsthm}
+\usepackage{amssymb}
+\usepackage{bbold}
+\usepackage{tikz}
+\usepackage{subcaption}
+\usepackage{xcolor}
+\usepackage{multirow}
+\usepackage{booktabs}
+\usepackage{makecell}
+\usepackage{tabularx}
+\usepackage{float}
+\usepackage{booktabs} % For \toprule, \midrule, \bottomrule
+\usepackage{ragged2e} % For better text alignment in narrow columns
+\usepackage{caption}
+\usepackage{placeins}
+
+\captionsetup{justification=centering, singlelinecheck=false}
+
+\newfloat{algfloat}{htbp}{lop}
+\floatname{algfloat}{Algorithm}
+\def\lstfloatautorefname{Algorithm}
+
+% Define a custom column type for left-aligned wrapping
+\newcolumntype{L}{>{\RaggedRight\arraybackslash}X}
+
+\usetikzlibrary{positioning, quotes, arrows.meta, calc, matrix, fit, backgrounds, decorations.pathreplacing}
+
+\tikzset{
+    deparrow/.style={
+        -Stealth, 
+        red, 
+        line width=0.8pt, 
+        % opacity=0.3, 
+        shorten >=2pt, 
+        shorten <=2pt
+    },
+    gdeparrow/.style={
+        -Stealth, 
+        gray, 
+        line width=0.8pt, 
+        % opacity=0.3, 
+        shorten >=2pt, 
+        shorten <=2pt,
+        dashed
+    }
+}
+
+\newcommand{\marker}[1]{\tikz[remember picture, overlay, baseline=(#1.base)] \node (#1) {};}
+% \newcommand{\marker}[1]{\tikz[remember picture, overlay] \node[anchor=base, inner sep=0pt] (#1) {\strut};}
+\newcommand{\offset}[1]{\protect\llap{\tiny\ttfamily\color{gray}#1\quad}}
+
+\theoremstyle{definition}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{definition}{Definition}[section]
+\newtheorem{corollary}{Corollary}[section]
+
+\hbadness=10000
+
+\definecolor{codegray}{rgb}{0.5,0.5,0.5}
+
+%TODO: Add top and bottom lines for separation
+%TODO: Use \description lists instead of itemize
+\lstdefinestyle{codestyle}{
+    commentstyle=\color{codegray},
+    numberstyle=\tiny,
+    basicstyle=\ttfamily\footnotesize,
+    breakatwhitespace=false,
+    breaklines=true,
+    captionpos=b,
+    keepspaces=true,
+    numbers=left,
+    numbersep=5pt,
+    showspaces=false,
+    showstringspaces=false,
+    showtabs=false,
+    tabsize=2,
+    frame=single
+}
+
+\lstset{style=codestyle}
+
+%For a more accurate word count
+%TC:envir table 0 1
+%TC:envir table* 0 1
+%TC:envir tabular [ignore] word
+%TC:envir displaymath 0 word
+%TC:envir math 0 word
+%TC:envir listings 0 1
+%TC:envir comment 0 0
+
+
+%For inserting index
+\usepackage{makeidx}
+\makeindex
+%\newcommand{\printthesisindex}{%
+%    \cleardoublepage%
+%    \phantomsection%
+%    \addcontentsline{toc}{chapter}{Index}%
+%    \printindex}
+
+%Commands for entering line breaks
+\usepackage{setspace}
+\onehalfspacing
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{2.0ex plus0.5ex minus0.2ex}
+\renewcommand\baselinestretch{1.2}
+
+\raggedbottom                           % try to avoid widows and orphans
+\sloppy
+\clubpenalty1000%
+\widowpenalty1000%
+
+
+\begin{document}
+
+%Don't count text outside the main body within the word count
+%tc:ignore
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Title
+
+\pagestyle{empty}
+
+\rightline{\LARGE \textbf{blind-grading-number}}
+%3450C
+
+\vspace*{60mm}
+\begin{center}
+\Huge
+\textbf{Efficient instruction-level parallelism analysis using tropical semiring `matrix multiplication'} \\[5mm]
+Computer Science Tripos -- Part II \\[5mm]
+\today  % today's date
+\end{center}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Declaration
+%%
+%%%%%
+ 
+\newpage
+\section*{Declaration}
+
+I, the candidate for Part II of the Computer Science Tripos with Blind Grading Number [insert BGN here], hereby declare that this report and the work described in it are my own work, unaided except as may be specified below, and that the report does not contain material that has already been used to any substantial extent for a comparable purpose. In preparation of this report, I adhered to the Department of Computer Science and Technology AI Policy. [The project required the approved use of [insert name of technology] and such use is acknowledged in the text at the relevant sections.] [I am content for my report to be made available to the students and staff of the University.]
+Date \today
+
+\medskip
+\leftline{Date [date]}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Proforma, table of contents and list of figures
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Proforma
+%%
+%%%%%
+
+\chapter*{Proforma}
+
+\begingroup
+\sloppy
+
+\textbf{Candidate number}: XXXXX \\
+\textbf{Project title}: Efficient instruction-level parallelism analysis using tropical semiring `matrix multiplication' \\
+\textbf{Examination}: Computer Science Tripos -- Part II, May 2026  \\
+\textbf{Word count}: XXXX \footnotemark[1]\\
+\textbf{Code line count}: \\
+\textbf{Project originator} (if this is the student please state `The candidate'): Alexandra Chadwick, \textit{awc32} \\
+\textbf{Day-to-day supervisor}: Alexandra Chadwick, \textit{awc32}\\
+\textbf{Marking supervisor}: Robert Mullins, \textit{rdm34}\\
+%\textbf{(Whether approval from the Departmental Ethics Committee was requested, whether it was approved, and the Ethics Committee case number if applicable.)} \\
+
+
+\footnotetext[1]{This word count was computed
+by \texttt{detex diss.tex | tr -cd '0-9A-Za-z $\tt\backslash$n' | wc -w}
+}
+\stepcounter{footnote}
+
+\endgroup
+
+\section*{Original aims of the project}
+
+Maximum 100 words.
+
+
+\section*{Work completed}
+
+Maximum 100 words.
+
+\section*{Special difficulties}
+
+Maximum 100 words.
+
+\listoffigures
+\listoftables
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Acknowledgements
+%%
+%%%%%
+\section*{Acknowledgements}
+
+Acknowledgements go here...
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%
+%% Table of contents
+%%
+%%%%%
+
+\tableofcontents
+
+\newpage
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% now for the chapters
+
+\pagestyle{headings}
+
+%tc:endignore
+
+\include{introduction/introduction}
+
+\include{preparation/preparation}
+
+\include{implementation/implementation}
+
+\include{evaluation/evaluation}
+
+\include{conclusions/conclusions}
+
+%tc:ignore
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% the bibliography
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{Bibliography}
+\bibliographystyle{plainnat}
+\bibliography{references}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% the appendices
+\appendix
+
+\include{appendices/nni-histograms}
+\include{appendices/tool-outputs}
+\include{appendices/project-proposal}
+
+% \include{appendices/latex-primer}
+%
+% \include{appendices/formatting-checklist}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Index:
+%%
+%\printthesisindex
+
+%tc:endignore
+\end{document}

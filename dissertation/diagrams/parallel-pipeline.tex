@@ -1,0 +1,66 @@
+\begin{tikzpicture}[
+    node distance=0.8cm and 1cm,
+    block/.style={
+        rectangle, rounded corners=5pt, draw=black, very thick,
+        minimum width=2.0cm, minimum height=1.2cm, align=center, font=\sffamily
+    },
+    arrow/.style={-{Stealth[scale=1.2]}, thick}
+]
+
+    % --- LEFT SIDE: Parallel Encode ---
+    \node[block, fill=orange!20] (n5) {Encode};
+    \node[block, fill=purple!20, below=of n5] (n6) {Reduce};
+    
+    \node[block, fill=orange!20, right=1.2cm of n5] (n7) {Encode};
+    \node[block, fill=purple!20, below=of n7] (n8) {Reduce};
+
+    \node at ($(n5)!0.5!(n7)$) {$\dots$};
+    \node at ($(n6)!0.5!(n8)$) {$\dots$};
+    
+    \begin{scope}[on background layer]
+        \node[draw=black, dashed, thick, inner sep=15pt, rounded corners=10pt, fit=(n5) (n6) (n7) (n8)] (encoding) {};
+        \node[anchor=south west, font=\sffamily] at (encoding.north west) {Parallel encode};
+    \end{scope}
+
+    % --- RIGHT SIDE: Evaluation Pipeline ---
+    % Positioned relative to the 'encoding' container
+    \node[block, fill=red!20, right=1.5cm of encoding.north east, anchor=north west] (m2) {Multiply};
+    \node[block, fill=pink!20, below=of m2] (m3) {Resolve\\deps};
+    
+    \node[block, fill=red!20, right=1cm of m2] (m4) {Multiply};
+    \node[block, fill=pink!20, below=of m4] (m5) {Resolve\\deps};
+
+    \node at ($(m2)!0.5!(m4)$) {$\dots$};
+    \node at ($(m3)!0.5!(m5)$) {$\dots$};
+
+    \begin{scope}[on background layer]
+        \node[draw=black, dashed, thick, inner sep=15pt, rounded corners=10pt, fit=(m2) (m3) (m4) (m5)] (evaluating) {};
+        \node[anchor=south west, font=\sffamily] at (evaluating.north west) {Evaluation};
+    \end{scope}
+
+
+    % --- TOP & BOTTOM NODES ---
+    \node[block, fill=yellow!20, above=1.5cm of encoding] (n3) {Initial single-thread pipeline};
+    \node[block, fill=purple!20, below=1.5cm of encoding] (n10) {Final reduce};
+
+    \begin{scope}[on background layer]
+        \node[draw=black, dashed, thick, inner sep=15pt, rounded corners=10pt, fit=(encoding) (n3) (n10)] (order) {};
+        \node[anchor=south west, font=\sffamily] at (order.north west) {Evaluation order};
+    \end{scope}
+    
+    % Multiplication Queue centered over 'evaluating'
+    \node[block, fill=blue!20, above=1.5cm of evaluating] (m1) {Multiplication\\Queue};
+    \node[block, fill=green!20, below=1.5cm of evaluating] (m6) {Final dependency\\matrix};
+
+    % --- ARROWS ---
+    \draw[arrow] (n3) -- (encoding.north);
+    \draw[arrow] (encoding.south) -- (n10);
+    \draw[arrow] (n5) -- (n6);
+    \draw[arrow] (n7) -- (n8);
+    \draw[arrow] (m2) -- (m3);
+    \draw[arrow] (m4) -- (m5);
+    \draw[arrow] ([yshift=100pt]order.east) -- (m1.west);
+    \draw[arrow] (m1) -- (evaluating);
+    \draw[arrow] (evaluating.south) -- (m6);
+
+\end{tikzpicture}
