@@ -40,8 +40,8 @@ them.
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.6\textwidth]{graphs/matrix_nni_performance.png}
-  \caption{Comparing runtime of matrix multiplication approaches, for matrices of varying sparsity.}
+  \includegraphics{graphs/matrix_nni_performance.png}
+  \caption{Comparing runtime of matrix multiplication approaches, for 64x64 matrices of varying sparsity.}
   \label{eval:fig:matrix-perf}
 \end{figure}
 
@@ -66,8 +66,8 @@ and the optimality of the resulting evaluation tree.
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.8\textwidth]{graphs/encoder_time.png}
-  \caption{Comparing runtime of program on different datasets, for different encoder parameters, excluding block 
+  \includegraphics[width=1\textwidth]{graphs/encoder_time.png}
+  \caption{Comparing runtime of encoding and reduction stages on different datasets, for different encoder parameters, excluding block 
   preprocessing and loop finding.}
   \label{eval:fig:encoder-perf}
 \end{figure}
@@ -89,7 +89,7 @@ While the best performance is not as good as the fixed pair encoder, the dynamic
 spot, regardless of the input program, as hypothesised in Section \ref{impl:variable-encoder}.
 
 The reason for the high execution times for $p=1$ shown in Figure \ref{eval:fig:encoder-perf}
-can be visualised further in \ref{eval:fig:encoder-profile}
+can be visualised further in Figure \ref{eval:fig:encoder-profile}.
 The $p=1$ reduction profile shows periods of minimal reduction, where the algorithm carefully replaces 
 the most frequent matrix pair. While this is theoretically optimal, each iteration requires an expensive frequency 
 analysis, which dominates the algorithm runtime. This contrasts heavily to reduction profiles of $p=256$ and $r=0.4$,
@@ -98,7 +98,7 @@ frequency analyses.
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.8\textwidth]{graphs/encoder_compression.png}
+  \includegraphics[width=1\textwidth]{graphs/encoder_compression.png}
   \caption{Comparing compression ratio of encoder on different datasets, for different encoder parameters, excluding block 
   preprocessing and loop finding.}
   \label{eval:fig:encoder-comp}
@@ -113,16 +113,16 @@ iterations as larger patterns are exploited.
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.8\textwidth]{graphs/encoder_time_loop.png}
-  \caption{Comparing runtime of program on different datasets, for different encoder parameters, including block 
+  \includegraphics[width=1\textwidth]{graphs/encoder_time_loop.png}
+  \caption{Comparing runtime of encoding and reduction stages on different datasets, for different encoder parameters, including block 
   preprocessing and loop finding.}
   \label{eval:fig:encoder-block-loop-perf}
 \end{figure}
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.8\textwidth]{graphs/encoder_compression_loop.png}
-  \caption{Comparing runtime of program on different datasets, for different encoder parameters, including block 
+  \includegraphics[width=1\textwidth]{graphs/encoder_compression_loop.png}
+  \caption{Comparing compression ratio of encoder on different datasets, for different encoder parameters, excluding block 
   preprocessing and loop finding.}
   \label{eval:fig:encoder-block-loop-comp}
 \end{figure}
@@ -141,7 +141,7 @@ parameter is heavily mitigated, increasing the robustness of the algorithm.
 
 Figure \ref{eval:fig:encoder-profile} 
 also shows the impact of block-preprocessing and fast loop finding. For highly repetitive traces like 
-cksum and cksum32 the optimisations instantly collapse the expression, allowing the encoder to begin its work on an
+cksum the optimisations instantly collapse the expression, allowing the encoder to begin its work on an
 expression that is already a fraction of the size. This effectively skips the early, slow iterations required to
 compress the loop structures.
 
@@ -237,8 +237,8 @@ We mostly focus on benchmarks performed on the factor trace, as it required the 
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_scaling.png}
-  \caption{Multi-threaded pipeline component runtime for various thread configurations.}
+  \includegraphics[width=1\textwidth]{graphs/concurrent/combined_metrics.png}
+  \caption{Multi-threaded pipeline component runtime and multiplier lag time for various thread configurations.}
   \label{eval:fig:multi-thread-speedup}
 \end{figure}
 
@@ -253,23 +253,16 @@ Section \ref{impl:enc-scaling} theorised that splitting into several chunks woul
 done by each thread, and while this does result in a small improvement, it is likely that the impact is minimal as the previous stages in 
 the pipeline have already simplified many patterns, leaving behind a more homogeneous expression.
 
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_lag.png}
-  \caption{Lag time for various thread configurations.}
-  \label{eval:fig:multi-thread-lag}
-\end{figure}
-
 To understand the large drop in runtime, we can examine the lag time of the pipeline, which is the time between the 
-parallel encoder stage completing the evaluation order, and the expression being completely reduced. Figure \ref{eval:fig:multi-thread-lag}
-shows that increasing the number of compute threads relative to the number of encoding threads almost eliminates this lag time, 
+parallel encoder stage completing the evaluation order, and the expression being completely reduced. We see 
+that increasing the number of compute threads relative to the number of encoding threads almost eliminates this lag time, 
 and so choosing the right number of threads is a balancing act. The encoding threads provide work for the compute threads, and so 
 we need enough compute threads to keep up with the work, and enough encoding threads to ensure that the compute threads do not starve.
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_throughput.png}
-  \caption{Matrix multiplication throughput for various thread configurations.}
+  \includegraphics[width=1\textwidth]{graphs/concurrent/factor_mults.png}
+  \caption{Matrix multiplication throughput and dependency overhead for various thread configurations.}
   \label{eval:fig:multi-thread-throughput}
 \end{figure}
 
@@ -282,7 +275,7 @@ we need enough compute threads to keep up with the work, and enough encoding thr
 
 We also see in Figure \ref{eval:fig:multi-thread-throughput}
 an order of magnitude increase in the throughput between 1 and 12 compute threads. Dependency management maintains a
-fairly constant overhead of 20\%, so this approach is scaling well with regards to the 
+fairly constant overhead of between 20\% to 30\%, so this approach is scaling well with regards to the 
 shared data structures involved.
 
 However, the multiplication throughput, along with the total runtime in Figure \ref{eval:fig:multi-thread-speedup}
@@ -290,7 +283,7 @@ harshly tapers off beyond the 4:12 thread configuration. This could be caused by
 
 \begin{figure}[htbp]
   \centering
-  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_compression.png}
+  \includegraphics{graphs/concurrent/factor_compression.png}
   \caption{Encoder compression performance changing with chunk size.}
   \label{eval:fig:multi-thread-compression}
 \end{figure}
