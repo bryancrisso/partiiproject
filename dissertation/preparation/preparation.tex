@@ -22,20 +22,6 @@ We will use the max-plus convention to apply to \textit{longest} paths in direct
  
 % Define tropical semiring and operations 
 
-\begin{definition}[Semiring] \label{def:semiring}
-  A semiring \cite{Wandsnider2020} is a set $R$ along with two operations, addition (+) and multiplication ($\cdot$), which satisfy the 
-  following axioms:
-
-  \begin{enumerate}
-    \item Addition is associative and commutative.
-    \item Multiplication is associative.
-    \item There exists an additive identity, which we usually call $\mathbb{0}$. Additionally, $\mathbb{0}$ annihilates 
-      $R$, that is, for all $x \in R$, $\mathbb{0} \cdot x = x \cdot \mathbb{0} = \mathbb{0}$.
-    \item There exists a multiplicative identity, which we usually call $\mathbb{1}$.
-    \item Multiplication left and right distributes over addition.
-  \end{enumerate}
-\end{definition}
-
 \begin{definition}[Tropical semiring]
   The tropical semiring \cite{Wandsnider2020}, or max-plus algebra, is the object $(\mathbb{R} \cup \{-\infty\}, \oplus, \odot)$ with operations 
 defined as:
@@ -47,12 +33,10 @@ $$
 \end{aligned}
 $$
 
+The tropical semiring satisfies the axioms of a semiring, from Definition \ref{def:semiring}.
+It is not a ring as the max operator does not have an inverse.
+
 \end{definition}
-
-The tropical semiring satisfies the axioms of a semiring from Definition \ref{def:semiring}. It
-is not a ring as the max operator does not have an inverse.
-
-% Define matrix multiplication in the context of the tropical semiring
 
 \begin{definition}[Matrix operations in the tropical semiring] \label{def:mat-mul}
 For any $n\times n$ matrices $X = (x_{ij})$ and $Y = (y_{ij})$, the entries of $U = X \oplus Y$ and $V = X \odot Y$
@@ -62,10 +46,10 @@ $$
 u_{ij} = x_{ij} \oplus y_{ij}, \text{ and } v_{ij} = \displaystyle\sum_{k=1}^{n} \! {}_{\oplus} x_{ik} \odot y_{kj}
 $$
 
-\end{definition}
-
 The matrix operations $\oplus$ and $\odot$ are associative owing to the commutativity and associativity of the underlying 
 addition operator, and that the multiplication operator distributes over addition.
+
+\end{definition}
 
 The Strassen algorithm \cite{STRASSEN1969} is a matrix multiplication algorithm with a better asymptotic complexity 
 ($O(n^{\log_2 7})$) than the above definition ($O(n^3)$). However, using Strassen's algorithm requires an additive 
@@ -73,7 +57,6 @@ inverse, which does not exist in the tropical semiring (as $\max$ has no inverse
 and so it is not applicable to our particular use-case.
 
 \subsection{Longest paths in Directed Acyclic Graphs}
-
 
 % Show how this applies to the longest-path problem
 
@@ -103,40 +86,18 @@ if and only if there exists at least one path of length $p$ from node $i$ to nod
 consisting of at most two edges, and that path is the longest such path. This extends to any integer exponent $q$
 \cite{krivulin2012maxplusalgebraapproachmodelling}.
 
-\begin{theorem}[Matrix exponentiation results in longest paths] \label{thm:mat-exp-longest-paths}
 
+\begin{restatable}[Matrix exponentiation results in longest paths]{theorem}{MatrixExp} \label{thm:mat-exp-longest-paths}
 For any integer $q>0$, the matrix
 $X^{q}$ has the entry $x_{ij}^{(q)} = p$ only if there is a path of length $p$ with at most $q$ edges from $i$ to $j$,
 and that path is the longest such path.
-
-\begin{proof}
-  We proceed by induction on $q$, the maximum number of edges in the path.
-
-  \textbf{Base case ($q = 1$):} Consider the matrix $X^1=X$. By the definition of an adjacency matrix, the entry  
-  $x_{ij}^{(1)}$ is exactly the weight of the direct edge from node $i$ to node $j$. If no such edge exists, then 
-  $x_{ij}^{(1)} = -\infty$. Thus, the base case holds: the entries represent their longest paths consisting of at most 
-  one edge.
-
-  \textbf{Inductive step:} Assume the claim holds for $q$. That is the matrix $X^{q}$ has entries $x_{ij}^{q}$ 
-  representing the longest path from $i$ to $j$ using at most $q$ edges.
-  We show that the claim holds for $q+1$. By definition, $X^{q+1} = X^{q} \odot X$
-  The entry $x_{ij}^{(q+1)}$ is calculated as:
-  $$x_{ij}^{(q+1)} = \sum_{k=1}^{n} \! {}_{\oplus} (x_{ik}^{(q)}\odot x_{kj})$$
-  Translating this to the original operators:
-  $$
-  x_{ij}^{(q+1)} = \max_{1 \leq k \leq n} (x_{ik}^{(q)} + x_{kj})
-  $$
-  This lines up perfectly with the dynamic programming approach to finding the longest path. To find a longest path from
-  node $i$ to node $j$, it checks every intermediate node $k$. It takes the longest known path from $i$ to $k$ of at most 
-  $q$ edges (by the inductive hypothesis), and adds the direct edge cost from $k$ to $j$. By taking the maximum over all 
-  intermediate nodes $k$, we find the absolute longest path from $i$ to $j$ of at most $q+1$ edges. Thus the claim holds 
-  for all integers $q>0$.
+\end{restatable}
+\begin{proof}[Proof Sketch]
+  The proof proceeds by induction on $q$, following the steps of the previously defined Bellman recursion equation.
+  See Appendix \ref{apdx:proofs} for the full proof.
 \end{proof}
 
 So, an adjacency matrix raised to the power infinity will converge to the longest distance matrix for that whole graph.
-  
-\end{theorem}
-
 
 For example, consider the graph:
 \begin{center}
@@ -158,24 +119,23 @@ So, in the tropical semiring:
 
 $$
 \begin{aligned}
-  X^{2} &= 
+  X^{2} = 
   \begin{pmatrix}
     0 & 1 & 4 & 4 \\ 
     -\infty & 0 & 3 & 4 \\ 
     -\infty & -\infty & 0 & 1 \\ 
     -\infty & -\infty & -\infty & 0 \\
-  \end{pmatrix} \\ 
-  X^{3} &= 
+  \end{pmatrix}&,\quad
+  X^{3} = 
   \begin{pmatrix}
     0 & 1 & 4 & 5 \\ 
     -\infty & 0 & 3 & 4 \\ 
     -\infty & -\infty & 0 & 1 \\ 
     -\infty & -\infty & -\infty & 0 \\
   \end{pmatrix} \\ 
-        & = X^{4} = X^{5} = \dots = X^{\infty}
+  = X^{4} = X^{5} &= \dots = X^{\infty}
 \end{aligned}
 $$
-
 This corresponds to the longest distance matrix between all pairs of nodes.
 
 \subsection{Forming the columnar DDG} \label{prep:register-only-chains}
@@ -271,22 +231,20 @@ the graph to the $n$th node in the second column of the graph.
 The remaining two column pairs are represented as:
 
 \[
-  \begin{aligned}
-    X_{2,3} &= 
+    X_{2,3} = 
     \begin{pmatrix}
     0 & 0 & 0 & -\infty \\
     -\infty & 1 & -\infty & 0 \\
     -\infty & -\infty & -\infty & 0 \\
     -\infty & -\infty & -\infty & 0 
-    \end{pmatrix} \\
-    X_{3,4} &= 
+    \end{pmatrix}, \quad
+    X_{3,4} = 
     \begin{pmatrix}
     0 & 0 & 0 & -\infty \\
     -\infty & 1 & -\infty & 0 \\
     -\infty & 2 & 2 & 0 \\
     -\infty & -\infty & -\infty & 0 
-    \end{pmatrix}\\
-  \end{aligned}
+    \end{pmatrix}
 \]
 
 These matrices are each $4 \times 4$ whereas a full adjacency matrix for the original graph would be $7 \times 7$.
@@ -338,47 +296,14 @@ required to store the DDG.
 
 \section{Datasets} \label{prep:datasets}
 
-I selected execution traces from several GNU coreutils programs (v8.32) \cite{coreutils} to benchmark the analysis tool, all executed on 
-an AArch64 architecture. Execution traces are lists of the instructions executed during an execution of a program.
-In our case, the execution traces are given as a series of branches, which can be interpreted as a series of basic 
-blocks. A basic block is a series of instructions executed sequentially without a branch.
+I selected execution traces from several GNU coreutils programs (v8.32) \cite{coreutils} to benchmark the analysis tool,
+all executed on an AArch64 architecture. The execution traces are given as a series of branches,
+which can be interpreted as the series of basic blocks that are executed at runtime. A basic block is a series of instructions
+executed sequentially without a branch.
 
-\subsection{Dataset listing} 
-
-The chosen program executions are:
-
-\begin{itemize}
-  \item \verb|cksum < urandom_1MiB.bin|
-
-  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/cksum-invocation.html}{coreutils cksum utility}}} ,
-  calculating the CRC of a 1MiB file of random bytes.
-
-  \item \verb|cksum < urandom_32MiB.bin|
-
-  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/cksum-invocation.html}{coreutils cksum utility}}} ,
-  calculating the CRC of a 32MiB file of random bytes.
-
-  \item \verb|factor 9696593808888933181586|
-
-  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/factor-invocation.html}{coreutils factor utility}}} ,
-  factorising 9696593808888933181586.
-
-  \item \verb|sha1sum < urandom_1MiB.bin|
-
-  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/sha1sum-invocation.html}{coreutils sha1sum utility}}} ,
-  computing the SHA1 message digest of a 1MiB file of random bytes.
-
-  \item \verb|sort < urandom_2000_lines.txt|
-
-  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/sort-invocation.html}{coreutils sort utility}}} ,
-  sorting a 2000 line text file of hexadecimal digits encoding random bytes.
-
-  \item \verb|shuf --random-source=urandom_1MiB.bin urandom_34953_lines.txt|
-
-  the {\color{blue}\textbf{\href{https://www.gnu.org/software/coreutils/manual/html\_node/shuf-invocation.html}{coreutils shuf utility}}} ,
-  shuffling a 34953 line text file of hexadecimal digits encoding random bytes.
-\end{itemize}
-
+The chosen program executions included \verb|cksum| (calculating the CRC of 1MiB and 32MiB files of random bytes),
+\verb|factor| (factorising a 22-digit integer), \verb|sha1sum| (computing the SHA1 message digest of a 1MiB file of
+random bytes), \verb|sort|, and \verb|shuf| (respectively sorting and shuffing text files of random hexadecimal digits).
 The source data can be found at \url{https://www.cl.cam.ac.uk/~awc32/cam-only/tropical-ilp-p2p/}. The traces were 
 collected by Alexandra Chadwick (\textit{awc32}) using custom tooling.
 
@@ -388,20 +313,12 @@ Many of the optimisations in this project revolve around exploiting patterns in 
 and memoising intermediate results. To motivate these optimisations, we can perform an analysis on the execution traces 
 to quantify the extent of these data patterns.
 
-%TODO: Verbatim
 We introduce terminology for distinguishing various types of repeating patterns \cite{PMRepeats}.
-Repeating substrings (or \textit{repeats}) in a string can be
-\begin{itemize}
-  \item \textit{tandem} repeats where successive repeat substrings immediately follow each other. They characterise 
-    loops in a program trace.
-  \item \textit{split} repeats where repeat substrings are separated by other symbols. These can characterise repeated 
-    function calls where each call has the same dependency information.
-  \item \textit{overlapping} repeats where repeat substrings overlap.
-\end{itemize}
-
-We can further refine the terminology for tandem repeats. A tandem repeat is \textit{primitive} if it is itself 
-not composed of tandem repeats of another substring. A set of tandem repeats is \textit{maximal} if there is no identical 
-substring immediately preceding or succeeding the sequence of tandem repeats. We refer to primitive and maximal tandem 
+Repeating substrings (or \textit{repeats}) in a string can be \textit{tandem} repeats, where successive repeat
+substrings immediately follow each other, without overlapping. They characterise loops in a program trace.
+A tandem repeat is \textit{primitive} if it is itself not composed of tandem repeats of another substring.
+A set of tandem repeats is \textit{maximal} if there is no identical substring immediately preceding or succeeding
+the sequence of tandem repeats. We refer to primitive and maximal tandem 
 repeats as \textit{PM repeats}, and throughout the project, `loops' will refer to PM-repeats in the execution trace.
 
 Table \ref{tbl:trace-analysis} summarises a trace analysis on the 

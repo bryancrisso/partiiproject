@@ -1,0 +1,41 @@
+\chapter{Mathematical definitions and proofs} \label{apdx:proofs}
+
+\begin{definition}[Semiring] \label{def:semiring}
+  A semiring \cite{Wandsnider2020} is a set $R$ along with two operations, addition (+) and multiplication ($\cdot$), which satisfy the 
+  following axioms:
+
+  \begin{enumerate}
+    \item Addition is associative and commutative.
+    \item Multiplication is associative.
+    \item There exists an additive identity, which we usually call $\mathbb{0}$. Additionally, $\mathbb{0}$ annihilates 
+      $R$, that is, for all $x \in R$, $\mathbb{0} \cdot x = x \cdot \mathbb{0} = \mathbb{0}$.
+    \item There exists a multiplicative identity, which we usually call $\mathbb{1}$.
+    \item Multiplication left and right distributes over addition.
+  \end{enumerate}
+\end{definition}
+
+\MatrixExp*
+\begin{proof}
+  We proceed by induction on $q$, the maximum number of edges in the path.
+
+  \textbf{Base case ($q = 1$):} Consider the matrix $X^1=X$. By the definition of an adjacency matrix, the entry  
+  $x_{ij}^{(1)}$ is exactly the weight of the direct edge from node $i$ to node $j$. If no such edge exists, then 
+  $x_{ij}^{(1)} = -\infty$. Thus, the base case holds: the entries represent their longest paths consisting of at most 
+  one edge.
+
+  \textbf{Inductive step:} Assume the claim holds for $q$. That is the matrix $X^{q}$ has entries $x_{ij}^{q}$ 
+  representing the longest path from $i$ to $j$ using at most $q$ edges.
+  We show that the claim holds for $q+1$. By definition, $X^{q+1} = X^{q} \odot X$
+  The entry $x_{ij}^{(q+1)}$ is calculated as:
+  $$x_{ij}^{(q+1)} = \sum_{k=1}^{n} \! {}_{\oplus} (x_{ik}^{(q)}\odot x_{kj})$$
+  Translating this to the original operators:
+  $$
+  x_{ij}^{(q+1)} = \max_{1 \leq k \leq n} (x_{ik}^{(q)} + x_{kj})
+  $$
+  This lines up perfectly with the dynamic programming approach to finding the longest path. To find a longest path from
+  node $i$ to node $j$, it checks every intermediate node $k$. It takes the longest known path from $i$ to $k$ of at most 
+  $q$ edges (by the inductive hypothesis), and adds the direct edge cost from $k$ to $j$. By taking the maximum over all 
+  intermediate nodes $k$, we find the absolute longest path from $i$ to $j$ of at most $q+1$ edges. Thus the claim holds 
+  for all integers $q>0$.
+\end{proof}
+
