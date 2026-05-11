@@ -695,7 +695,7 @@ the job's dependents. If both operands of a dependent have been satisfied, it is
 
 Jobs are acquired with read-locks for inspection, and write-locks for modification, eliminating data races between 
 threads queueing new multiplications and threads evaluating jobs and resolving their dependencies. The use of fine-grained 
-bucket-level locking aims to reduce contention compared to a global mutex,
+bucket-level locking aims to reduce contention compared to a global mutex.
 
 \FloatBarrier
 \subsection{Work-sharing}
