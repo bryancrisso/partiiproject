@@ -167,7 +167,7 @@ function multiply(Matrix<n,m> X, Matrix<m,p> Y) {
   return V;
 }
 \end{lstlisting}
-\caption{Basic matrix multiplication algorithm}
+\caption{Basic matrix multiplication algorithm.}
 \label{alg:basic-matrix}
 \end{algfloat}
 
@@ -326,64 +326,18 @@ uses a dense accumulator and a `switch' array. The dense accumulator \verb|x| is
 current row. The switch array \verb|xb| is an array used to track which columns have been touched in the current row
 calculation.
 
-\begin{algfloat}[ht]
-\begin{lstlisting}[mathescape=true,language=C++]
-function multiply(SparseMatrix<m,n> A, SparseMatrix<n,p> B) {
-  int[p] x  = [$-\infty$,...,$-\infty$];
-  int[p] xb = [-1,...,-1];
-  Queue<int>  iCols;
-  SparseMatrix<m,p> C;
-
-  IC[0] = 0;
-
-  for (i : [0,...,m-1]) {
-    for (jp : [IA[i],...,IA[i+1]-1]) {
-      int j = JA[jp];
-      int a = VA[jp];
-
-      for (kp : [IB[j],...,IB[j+1]-1]) {
-        int k = JB[kp];
-        int b = VB[kp];
-
-        if (xb[k] != i) {
-          xb[k] = i;
-          x[k] = a + b;
-          iCols.push(k);
-        } else {
-          x[k] = max(x[k], a + b);
-        }
-      }
-    }
-
-    while (!iCols.empty) {
-      int col = iCols.pop();
-      // Assume dynamically allocated arrays
-      JC.push(col);
-      VC.push(x[col]);
-    }
-
-    IC[i+1] = JC.size;
-  }
-
-  return C;
-}
-\end{lstlisting}
-\caption{Sparse-Sparse matrix multiplication}
-\label{alg:Sp-Sp-matrix}
-\end{algfloat}
-
-As shown in Algorthim \ref{alg:Sp-Sp-matrix}, the accumulation is done as follows:
+As shown in Algorithm \ref{alg:Sp-Sp-matrix}, the accumulation of $C$'s rows is
+done inside the innermost loop as follows:
 
 \begin{itemize}
   \item If \verb|xb[k] == i|, we have already seen this column for the current row. Simply add the value to the 
     accumulator \verb|x|.
-  \item Otherwise, this is the first time seeing this column for the current row. Initialize \verb|x|, update \verb|xb|
-    to $i$ and add the column index to the set of touched columns.
-  \item After the accumulation is complete, the algorithm copies the active columns and their associated values into the 
-    new sparse matrix.
+  \item Otherwise, this is the first time seeing this column for the current row. Initialize \verb|x|, and update \verb|xb|
+    to $i$.
 \end{itemize}
 
-The algorithm requires dynamic allocation for $C$'s structures, as the $nni$ of $C$ is not known until the
+After the accumulation is complete, the algorithm copies the active columns and their associated values into $C$.
+The algorithm requires dynamic allocation for $C$'s structures, as the sparsity of $C$ is not known until the
 multiplication is carried out.
 
 \FloatBarrier
@@ -641,44 +595,7 @@ iterations. The loop body is reduced to a single matrix, cached for future ident
 all iterations of the loop. The pointer \verb|i| then advances past the collapsed loop and the history buffer is cleared,
 which prevent the processing of overlapping PM-repeats and hierarchical nesting.
 
-We also define the helper functions \verb|verifyMatch| and \verb|countIterations| in Algorithm \ref{alg:fast-loop-helper}.
-
-\begin{algfloat}[htbp]
-\begin{lstlisting}[language=C++, caption={Verifying trace ranges match}, label={alg:verify}]
-function verifyMatch(int[] trace, int startA, int startB, int length) {
-  /* Do a quick boundary check and exit if tails don't match */
-  if (startB + length > trace.size()) return false;
-  if (trace[startA + length - 1] != trace[startB + length - 1]) return false;
-
-  /* Verify full sequence */
-  for (k : [0,...,length-2]) {
-    if (trace[startA + k] != trace[startB + k]) {
-      return false;
-    }
-  }
-  return true;
-}
-\end{lstlisting}
-
-\begin{lstlisting}[language=C++, caption={Greedily finding all iterations}, label={alg:iterate}]
-function countIterations(int[] trace, int currentPos, int period) {
-  int iterations = 2; // Account for original body and first match
-  int scanPos = currentPos + period;
-
-  for (scanPos + period <= trace.size()) {
-    if (verifyMatch(trace, currentPos, scanPos, period)) {
-      iterations++;
-      scanPos += period;
-    } else {
-      break;
-    }
-  }
-  return iterations;
-}
-\end{lstlisting}
-\caption{Helper functions for the fast loop finder.}
-\label{alg:fast-loop-helper}
-\end{algfloat}
+The helper functions \verb|verifyMatch| and \verb|countIterations| are also defined in Algorithm \ref{alg:fast-loop-helper}.
 
 \FloatBarrier
 \subsection{Final single-threaded pipeline}
@@ -805,101 +722,18 @@ struct MatrixJob {
 \end{figure}
 
 Algorithm \ref{alg:queue-mults} describes the queueing of multiplication jobs.
-Queued jobs are added to a set of pending jobs. The operands are then inspected, and if both
-are complete, we schedule the job for execution. On the other hand, if either of the operands are still 
-pending, we add the new job to a list of dependents on that operand.
-
-\begin{algfloat}[htbp]
-\begin{lstlisting}[language=C++, caption={Queueing Logic}, label={alg:queue}]
-concurrentMap<Matrix*, MatrixJob> pendingJobs;
-concurrentQueue<MatrixJob> readyJobs;
-
-/* Queueing up a new multiplication */
-function enqueueMultiplication(MatrixJob newJob) {
-  newJob.unresolvedDeps = 2;
-
-  // Safely insert C into the map
-  with WriteLock(pendingJobs[newJob.C]) {
-    pendingJobs[newJob.C] = newJob;
-  }
-
-  checkDependency(A,C);
-  checkDependency(B,C);
-
-  // Enqueue if dependencies are resolved.
-  with ReadLock(pendingJobs[newJob.C]) {
-    if (pendingJobs[newJob.C].unresolvedDeps == 0) {
-      readyJobs.push(pendingJobs[newJob.C]);
-    }
-  }
-}
-\end{lstlisting}
-
-\begin{lstlisting}[language=C++, caption={Dependency Processing}, label={alg:deps1}]
-function checkDependency(Matrix* dependency, Matrix* dependent) {
-  with WriteLock(pendingJobs[dependency]) {
-    if (dependency in pendingJobs) {
-      pendingJobs[dependency].dependents.append(dependent);
-    } else {
-      // Dependency is complete; update dependent
-      with WriteLock(pendingJobs[dependent]) {
-        pendingJobs[dependent].unresolvedDeps--;
-      }
-    }
-  }
-}
-\end{lstlisting}
-\caption{Matrix queueing and dependency management logic.}
-\label{alg:queue-mults}
-\end{algfloat}
+Queued jobs are added to a \verb|concurrent_hash_map| mapping a matrix pointer to a job, allowing for job lookup and 
+serialising operations on jobs. The operands' jobs are then inspected, and if both are complete, we schedule the job
+for execution. On the other hand, if either of the operands are still pending, we add the new job to a list of
+dependents on that operand. 
 
 Once both of its dependencies are resolved, a job is pushed to the ready queue, waiting to be executed.
 Upon execution of a job (as shown in Algorithm \ref{alg:async-mults}), we inspect
 the job's dependents. If both operands of a dependent have been satisfied, it is scheduled for execution.
 
-\begin{algfloat}[htbp]
-    \centering
-    \begin{lstlisting}[language=C++, caption={Execution Logic}, label={alg:exec}]
-concurrentMap<Matrix*, MatrixJob> pendingJobs;
-concurrentQueue<MatrixJob> readyJobs;
-
-void executeMultiplication(MatrixJob job) {
-    *(job.C) = *(job.A) * *(job.B);
-    processDependents(job.C);
-    with WriteLock(pendingJobs[job.C]) {
-        pendingJobs.erase(job.C);
-    }
-}
-    \end{lstlisting}
-
-    \vspace{1em} % Adds a small gap between the two listings
-
-    \begin{lstlisting}[language=C++, caption={Dependency Processing}, label={alg:deps2}]
-void processDependents(Matrix* dependency) {
-    Matrix*[] deps;
-    with ReadLock(pendingJobs[dependency]) {
-        deps = pendingJobs[dependency].dependents;
-    }
-    for (Matrix* dep : deps) {
-        with WriteLock(pendingJobs[dep]) {
-            if (pendingJobs.contains(dep)) {
-                pendingJobs[dep].unresolvedDeps--;
-                if (pendingJobs[dep].unresolvedDeps == 0) {
-                    readyJobs.push(pendingJobs[dep]);
-                }
-            }
-        }
-    }
-}
-    \end{lstlisting}
-    \caption{Asynchronous matrix multiplication and dependency management logic.}
-    \label{alg:async-mults}
-\end{algfloat}
-
-The locking of jobs when checking dependencies successfully eliminates data races between different threads enqueuing 
-jobs and resolving dependencies. 
-%TODO: Expand here. discuss fine-grained locking. What overhead is there. Can there be lock contention?
-% Can I expand on how we eliminate data races?
+Jobs are acquired with read-locks for inspection, and write-locks for modification, eliminating data races between 
+threads queueing new multiplications and threads evaluating jobs and resolving their dependencies. The use of fine-grained 
+bucket-level locking aims to reduce contention compared to a global mutex,
 
 \FloatBarrier
 \subsection{Work-sharing}
@@ -927,9 +761,8 @@ as the pool's kernel, multiple threads asynchronously process the evaluation ord
 stage.
 
 Increasing the thread count can lead to contention, as each thread has to access the shared \verb|pendingJobs| 
-map when processing dependencies. This map uses bucket-level reader-writer locks (as described in section \ref{impl:data-structs}),
-and so two threads may try to exclusively access the same bucket, preventing them from simultaneously making progress.
-The impact of this is evaluated in Section \ref{eval:concurrency}.
+map when processing dependencies. The map's bucket-level reader-writer locks might impede progress when two threads 
+try to exclusively access the same bucket. The impact of this is evaluated in Section \ref{eval:concurrency}.
 
 \subsubsection{Encoding scaling} \label{impl:enc-scaling}
 
@@ -1030,68 +863,6 @@ This simplifies the architecture design, which frees up resources that are spent
 % Kernel design
 
 \subsection{GPU Kernel}
-
-\begin{algfloat}[htbp]
-\begin{lstlisting}[language=C++]
-#define TILE_SIZE 16
-__kernel void batched_max_plus_tiled(__global const int* A_batch,
-                                     __global const int* B_batch,
-                                     __global int* C_batch,
-                                     const int N,
-                                     const int negative_infinity) {
-  __local int As[TILE_SIZE][TILE_SIZE];
-  __local int Bs[TILE_SIZE][TILE_SIZE];
-
-  int bx = get_group_id(0);
-  int by = get_group_id(1);
-  int tx = get_local_id(0);
-  int ty = get_local_id(1);
-  int batch_idx = get_group_id(2);
-
-  int row = by * TILE_SIZE + ty;
-  int col = bx * TILE_SIZE + tx;
-  int offset = batch_idx * (N * N);
-
-  int max_val = negative_infinity;
-  int num_tiles = (N + TILE_SIZE - 1) / TILE_SIZE;
-
-  for (int t = 0; t < num_tiles; ++t) {
-    if (row < N && (t * TILE_SIZE + tx) < N) {
-      As[ty][tx] = A_batch[offset + row * N + t * TILE_SIZE + tx];
-    } else {
-      As[ty][tx] = negative_infinity;
-    }
-
-    if ((t * TILE_SIZE + ty) < N && col < N) {
-      Bs[ty][tx] = B_batch[offset + (t * TILE_SIZE + ty) * N + col];
-    } else {
-      Bs[ty][tx] = negative_infinity;
-    }
-
-    barrier(CLK_LOCAL_MEM_FENCE);
-
-    for (int k = 0; k < TILE_SIZE; ++k) {
-      int a_val = As[ty][k];
-      int b_val = Bs[k][tx];
-
-      if (a_val != negative_infinity && b_val != negative_infinity) {
-        int current_path_length = a_val + b_val;
-        if (current_path_length > max_val) {
-          max_val = current_path_length;
-        }
-      }
-    }
-    barrier(CLK_LOCAL_MEM_FENCE);
-  }
-
-  if (row < N && col < N) {
-    C_batch[offset + row * N + col] = max_val;
-  }
-}
-\end{lstlisting}
-  \caption{Tiled GPU kernel for computing batches of matrix multiplications}
-  \label{alg:gpu-kernel}
-\end{algfloat}
 
 Algorithm \ref{alg:gpu-kernel} shows the OpenCL code for the GPU kernel. Notable sections of 
 the kernel include:
