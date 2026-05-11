@@ -624,49 +624,11 @@ a component decided to multiply a pair of matrices, the operation executed synch
 for optimisation of the original problem via parallelisation in Section \ref{intro:motivation},
 and so this section describes approaches to parallelising the reduction pipeline.
 
-\subsection{Concurrent data structures} \label{impl:data-structs}
-
-One notable difficulty encountered during the development of concurrent programs is inter-thread communication.
-This communication is either achieved through message passing, which enjoys architectural simplicity and safety, or 
-through shared memory access. Although shared memory access requires more complex synchronisation to prevent data races,
-it generally yields superior performance \cite{MPvsSM}.
-Consequently, we choose shared memory as the communication paradigm for this project.
-
-% TODO: Safety and liveness not necessarily necessary? Could just use "thread-safe" as a description, and 
-% describe the hash map as fine-grained locking and the queue as non-blocking when not empty.
-
 Concurrent data structures are designed for controlling access and modification by multiple threads to shared memory.
-We can describe the theoretical foundations of the data structures through \textit{safety} and \textit{liveness} properties.
-
-Safety properties dictate the correctness of concurrent operations, through ordering guarantees.
-For example, sequential consistency states that the result of any execution is the same as if the operations of all the
-processors were executed in some sequential order, respecting the order specified by the program \cite{LamportSC}.
-Linearizability further constrains this by requiring that every concurrent operation must appear to take effect 
-instantaneously at some single point between the invocation and completion of the operation. This is known as the 
-linearization point \cite{Linearizability}.
-
-Liveness properties describe a system's progress guarantees. They range from blocking synchronisation (which relies
-on mutual exclusion, introducing risks like deadlocks), to other non-blocking guarantees such as lock-free (some thread 
-will make progress if threads keep making steps), and wait-free (a thread finishes its own operation if it keeps making
-steps) \cite{ConcurrentDS}.
-
-For the purposes of our project, we chose to use the concurrent data structures implemented in Intel's oneAPI Threading 
-Building Blocks (TBB) library, specifically employing the \verb|concurrent_hash_map| and \verb|concurrent_bounded_queue|
-data structures.
-
-\verb|concurrent_hash_map| implements a concurrent map interface using fine-grained, bucket-level reader-writer locks.
-Therefore, it operates under blocking synchronisation and provides linearizability for its operations. The lifecycle of 
-locks is managed in the user scope, where \verb|accessor| and \verb|const_accessor| are used to gain exclusive and 
-shared access, respectively, to the data. The blocking nature of accessors introduces the risk of deadlocks when using 
-the map.
-% TODO: why did we need a concurrent map anyways?? To track pending jobs from multiple different threads.
-
-\verb|concurrent_bounded_queue| implements a concurrent queue interface. Its operations are linearizable, being ordered 
-by a wait-free ticket system. We use this queue, as opposed to the regular \verb|concurrent_queue| for its ability to 
-block consumers when the queue is empty. This means that \verb|pop| operations are blocking, but \verb|push| operations 
-are non-blocking, as we never set a maximum capacity for the queue. No user-space lock management is required for this 
-queue, which reduces the risk of deadlock.
-% TODO: why do we use a concurrent queue?? To implement work-sharing, where tasks are distributed to worker threads.
+This project utilises data structures from Intel's oneAPI Threading Building Blocks (TBB) library.
+Specifically, we employ \verb|concurrent_hash_map| for linearizable bucket-level reader-writer locks when tracking 
+pending multiplications in \ref{impl:split-compute}, and \verb|concurrent_bounded_queue| 
+is used as a producer-consumer queue, with the ability to safely block consumers when empty.
 
 \subsection{Pipelined parallelism} \label{impl:split-compute}
 
