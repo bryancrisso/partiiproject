@@ -1,5 +1,5 @@
 % Template for a Computer Science Tripos Part II project dissertation
-\documentclass[12pt,a4paper,twoside,openright]{report}
+\documentclass[12pt,a4paper,oneside]{report}
 \usepackage{setspace}
 \usepackage[pdfborder={0 0 0}]{hyperref}    % turns references into hyperlinks
 \usepackage[margin=25mm]{geometry}  % adjusts page layout
@@ -34,6 +34,9 @@
 \usepackage{placeins}
 \usepackage{thmtools}
 \usepackage{thm-restate}
+\usepackage{titlesec}
+
+% \includeonly{preparation/preparation, appendices/maths-defs-proofs, appendices/additional-code-listings}
 
 \captionsetup{justification=centering, singlelinecheck=false}
 
@@ -99,6 +102,18 @@
 }
 
 \lstset{style=codestyle}
+
+% 1. Slash the massive top margin
+% \titlespacing*{<command>}{<left>}{<before-sep>}{<after-sep>}
+% Changing the <before-sep> to a negative value pulls the chapter title up.
+\titlespacing*{\chapter}{0pt}{-20pt}{30pt}
+
+% 2. Recreate the clean visual style from your example
+\titleformat{\chapter}[display]
+  {\normalfont\centering} % Centers the text and sets a base size
+  {\MakeUppercase{\chaptertitlename}\ \thechapter} % "CHAPTER 3"
+  {5pt} % Space between "CHAPTER 3" and the line
+  {\Huge\bfseries} % Draws the line, adds space, formats title
 
 %For a more accurate word count
 %TC:envir table 0 1
