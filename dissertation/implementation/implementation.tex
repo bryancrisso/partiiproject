@@ -749,15 +749,6 @@ of the encoding and reduction stages by a thread. Once all chunks have been redu
 expression built from the resulting matrices is evaluated. By parallelising and speeding up the evaluation order
 discovery, we can keep the matrix multiplication thread pool saturated.
 
-While it may seem reasonable to split the expression into as many equal-sized chunks as there are threads, equal-sized 
-chunks are not equally easy to reduce. Some chunks can exhibit highly exploitable patterns, such as very frequent matrix 
-pairs, which allows for quick encoding into a smaller expression. Other chunks may not have such patterns, and consequently
-take longer to process. If we assigned each thread just one chunk, threads with easier chunks would wait idly for the
-more difficult workloads to catch up. By further dividing the expression, threads that reduce a chunk quickly 
-have more chunks available to process while slower threads catch up, equalising the amount of work done by each thread.
-
-%TODO: show off single-chunk asymmetry?
-
 However, performing local frequency analysis on smaller chunks of the expression reduces the overall efficiency of the 
 encoding stage. The BPE-adjacent approach performs best with global frequency values, as the frequency distribution
 within a single chunk may not reflect the frequency distribution of the whole expression. This often leads to a 
