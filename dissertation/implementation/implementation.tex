@@ -769,21 +769,20 @@ hope to offset this extra work by utilising more compute. The impact on efficien
 
 % Using the GPU for matrix multiplications
 
-Graphical Processing Units (GPUs) are accelerator chips specialised for high-throughput computing.
 While a CPU features a handful of powerful, generalised cores, optimised for complex sequential tasks, 
-a GPU possesses thousands of simpler, specialised cores, which excel at performing thousands of independent tasks 
-simultaneously. This architecture, known as Single-Instruction, Multiple-Threads (SIMT) \cite{flynntaxonomy}
-is effective at accelerating highly data-parallel operations like matrix multiplication.
+\textit{Graphical Processing Units} (GPUs) achieve high-throughput compute by employing thousands of simpler, specialised cores
+using a Single-Instruction, Multiple-Threads (SIMT) \cite{flynntaxonomy} architecture. To accelerate highly data-parallel 
+operations like matrix multiplication across many hardware platforms, this project uses OpenCL.
 
-OpenCL was used in this project for GPU acceleration to allow for cross-platform portability across both integrated and
-discrete graphics hardware.
+In the OpenCL execution model, the CPU acts as the \textit{Host} which dispatches a kernel program to the GPU (the \textit{Device}).
+OpenCL organises units of execution into a hierarchy.
+\begin{description}
+  \item [NDRange:] (N-Dimensional range), the total number of threads executing the kernel.
+  \item [Work-items:] The individual threads executing the kernel, which are organised into \textbf{work-groups}.
+  \item [Work-groups:] A collection of work-items that can synchronise and share local memory.
+\end{description}
 
-To execute code on the GPU, a CPU (the \textit{Host}) enqueues a \textit{kernel} program to the GPU (the \textit{Device}).
-In OpenCL, the number of threads executing this kernel is known as the \textit{NDRange} (N-Dimensional range).
-\textit{Work-items} are the individual threads executing the kernel. They are grouped into \textit{work-groups} (analogous
-to CUDA thread blocks), allowing them to synchronise and share memory.
-
-The GPU features a multi-tier memory hierarchy, with two main levels.
+The GPU also features a multi-tier memory hierarchy, with two main levels.
 \begin{description}
   \item[Global memory:] The GPU's main memory. It is large, but suffers from high latency and low bandwidth if not
     accessed carefully.
@@ -792,41 +791,27 @@ The GPU features a multi-tier memory hierarchy, with two main levels.
 
 % Explain GPUs are throughput and not latency, so we have to batch multiplications.
 
-Dedicated GPUs are physically separated from the host, and so data is sent across a bus (typically PCIe).
-While this bus is high bandwidth, it also has high latency. This influences how workloads are assigned to the
-GPU, with tasks being collected into large batches before being sent over.
-This amortises the latency overhead of the bus and allows for full use of its bandwidth, and also enables utilisation
-of all the GPU cores.
-
-% Tiling
+Because discrete GPUs are separated from the host, by a bus (typically PCIe), data transfers suffer from high latency.
+To amortise this overhead and fully utilise the bus's high bandwidth, tasks are collected into large batches before 
+being dispatched to the device.
 
 \subsection{Tiling on the GPU}
 
-We choose to make use of matrix tiling on the GPU. Without tiling, a naive kernel would force each work-item to read
-full rows and columns from the matrix in slow global memory, crippling
-performance. Instead, by choosing an example tile size of 16x16, each work-group loads a small tile from global memory 
-to fast local memory, synchronises, computes partial dot products, and moves on to the next tile. This has a similar 
-benefit to the batching of multiplications, but on a more granular level.
+While tiled matrix multiplication was rejected for the CPU in Section \ref{impl:cpu-tiling}
+because the 64x64 matrices fit entirely within L1 cache, it is beneficial for the GPU. A naive GPU kernel would force
+each work-item to read full rows and columns from slow global memory, crippling performance.
 
-Recall that we rejected the use of tiled matrix multiplication on the CPU in Section \ref{impl:cpu-tiling},
-as the 64x64 matrices fit entirely within the L1 cache. It is true that the matrices would likely be able to fit in the 
-local memory of a work group, but a difference between the bottlenecks of the CPU and the GPU make tiling an
-attractive proposal.
+Instead, by using a 16x16 tile size, each work-group loads a subset of the matrix from global memory 
+into fast local memory, synchronises, computes partial dot products, and moves on to the next tile.
+Although an entire 64x64 matrix would likely be able to fit into a work-group's local memory, tiling allows us to 
+maximise GPU \textit{occupancy}.
 
-GPUs hide resource latency by keeping thousands of threads in flight. A \textit{Compute Unit} in OpenCL is the device 
+GPUs hide resource latency by keeping thousands of threads "in-flight". A \textit{Compute Unit} in OpenCL is the device 
 component that schedules and executes work-groups (equivalent to a CUDA Streaming Multiprocessor).
-If a work-group stalls while waiting for global memory, the CU instantly switches to executing another work-group.
-However, the number of work-groups a CU can keep `in-flight' is limited by the resources each work-group requires. 
-If tiling is used, each work-group only consumes a small amount of memory, and so several tiles from several matrices 
+If a work-group stalls while waiting for global memory, the CU instantly switches to executing another.
+However, the number of work-groups a CU can manage is limited by the local memory each work-group requires. 
+Tiling minimises the amount of local memory a work-group uses at once, and so several tiles from several matrices 
 can be held in local memory, allowing more independent work-groups to be `in-flight', than if no tiling was used.
-
-This approach is also used on the CPU in coarse-grained multithreading to hide high-latency stalls. However, we do not 
-need to utilise the same tiling approach to increase occupancy, as a CPU thread is engineered specifically to prevent 
-stalling, through use of large caches, out-of-order execution, branch prediction, and hardware prefetchers. The GPU 
-does not make use of such systems as it assumes there always exists more threads ready to execute to hide the stall.
-This simplifies the architecture design, which frees up resources that are spent on optimising pure throughput performance.
-
-% Kernel design
 
 \subsection{GPU Kernel}
 
