@@ -216,8 +216,9 @@ We mostly focus on benchmarks performed on the factor trace, as it required the 
 
 Figure \ref{eval:fig:multi-thread-speedup} 
 immediately shows the impact of introducing an asynchronous architecture on the runtime of the multi-threaded pipeline components.
-By just scaling to 4 matrix compute threads, runtime drops from 9s down to $\sim$2.5s, and further, albeit less significant improvements 
-are seen when increasing the number of encoding and compute threads. This satisfies the success criteria for the MP requirement.
+By increasing the number of threads doing matrix multiplication to 4, runtime drops from 9s down to $\sim$2.5s, and
+further, albeit less significant improvements are seen when increasing both the number of encoding and compute threads.
+This satisfies the success criteria for the MP requirement.
 
 Interestingly, the chunk multiplier only has a small impact on performance. The expression is split up into a number of chunks equal 
 to the number of encoding threads multiplied by the chunk multiplier.
@@ -253,9 +254,9 @@ harshly tapers off beyond the 4:12 thread configuration. This could be caused by
   \label{eval:fig:multi-thread-compression}
 \end{figure}
 
-Section \ref{impl:enc-scaling} explains that splitting the expression into more 
+Section \ref{impl:enc-scaling} explains that splitting the expression into more,
 smaller chunks damages the encoder's overall efficiency. Figure \ref{eval:fig:multi-thread-compression} 
-validates this, with a decrease in compression ratio from 7 to 5 representing a 40\% increase in the number of
+quantifies this, with a decrease in compression ratio from 7 to 5 representing a 40\% increase in the number of
 multiplications required to reduce the final expression. This may contribute to poor scaling with more chunks, but since
 the lag time is still close to zero in this case, the compute threads are still able to keep up with the increased number
 of queued multiplications.
