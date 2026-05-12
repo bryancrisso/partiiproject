@@ -1,79 +1,25 @@
 \chapter{Introduction}
 
-This project explores a novel matrix-based technique for calculating the upper bound of ILP in a program.
-We show that this approach offers better performance than traditional analysis techniques, albeit at the cost of 
-greater use of memory.
+This project explores a novel matrix-based technique for calculating the upper bound of instruction level parallelism
+in a program. This project shows that this approach offers better performance than traditional analysis techniques,
+at the cost of greater use of memory.
 
-\section{Instruction Level Parallelism}
+\section{Background: ILP and limit studies} \label{intro:background}
 
-\textit{Instruction level parallelism} (ILP) is the simultaneous execution of instructions in a computer processor~\cite{hennessy_patterson}.
-These instructions come from a single specific thread of execution in a computer program, as opposed to 
-concurrency, where instructions from many threads are executed concurrently, and therefore is known as
-\textit{thread level parallelism}.
+\textit{Instruction level parallelism} (ILP) is the simultaneous execution of independent instructions in a computer processor~\cite{hennessy_patterson}.
+A pair of instructions from a thread of execution are independent when there exist no dependencies (specifically data,
+control or structural dependencies) between them. An instruction dependent on a previous one must be executed strictly
+after the former has completed execution, to ensure correct execution of the entire program.
 
-Theoretically, a pair of instructions from a single thread can be executed simultaneously when there exist no 
-dependencies (specifically data, control or structural dependencies) between them. A data dependency between two
-instructions, which is the primary focus of this project, exists when the operation of the instruction
-appearing later in the program order consumes a value that is produced by the operation of the instruction appearing 
-before it in the program order (this is known as a read after write, or RaW dependency)~\cite{hennessy_patterson}.
+Modern superscalar processors commonly exploit ILP to increase throughput and hide latency \cite{shen2013modern}. The absolute limit of 
+exploitable ILP is dependent on the structure of the executed program. A dynamic execution of a program will have a
+`critical path' of instructions, each data-dependent on the previous, that have to be executed sequentially.
 
-To avoid race conditions, which lead to unexpected or inconsistent results, a computer processor has to take these 
-dependencies into consideration when scheduling instructions for execution. An instruction dependent on a previous
-one must be executed strictly after the former has completed execution, to ensure correct execution of the entire program.
-
-\subsection{Finding and exploiting ILP in processors}
-
-Prior to the widespread adoption of superscalar architectures in the 1990s, processors were strictly in-order and
-single-issue, exhibiting a maximum IPC (instructions per cycle) of 1~\cite{shen2013modern}.
-Each clock cycle, the processor would execute one instruction, in program order,
-usually through a pipelined architecture. Modern processors commonly exploit ILP, through superscalar processing and out
-of order execution. Superscalar processors can issue several independent instructions in a single clock cycle, commonly
-exhibiting an IPC greater than 1~\cite{shen2013modern}. This means that instructions are scheduled and executed out of
-order, which is a technique also used to hide latencies from complex operations and memory loads.
-
-In fact, the absolute limit of the ILP an ideal processor (as defined by Hennessy and Patterson \cite{hennessy_patterson})
-can exploit is entirely dependent on the structure of the computer program it executes.
-The dynamic execution of a program will have a `critical path', that is, a series of executed instructions, each
-data-dependent on the previous, that must be executed sequentially.
-A processor cannot execute the program faster than it can execute this critical path~\cite{Chadderz}.
-
-However, the amount of ILP a processor is able to find and exploit is usually lower than the theoretical limit, owing to 
-hardware limitations. These can include \cite{ilp-spec95}:
-
-\begin{itemize}
-  \item Branch/jump mispredictions, which typically trigger a discard of all work after the point of misprediction.
-  \item Stuctural hazards, such as busy functional units or slow memory accesses.
-  \item The number of instructions a superscalar processor can issue at once.
-  \item The size of the window used when looking for independent instructions to schedule. Larger windows give 
-    diminishing returns in terms of ILP achieved \cite{future-ilp}.
-  \item False data dependencies, known as Write-after-Write or Write-after-Read, which are a consequence of the limited 
-    number of architectural registers. They are mitigated in hardware using register renaming to a larger set of physical
-    registers hidden to the programmer, but ultimately we may not resolve all these hazards.
-\end{itemize}
-
-\section{ILP Limit Studies}
-
-Increasing the amount of ILP a processor can find and exploit is a crucial part of high-performance processor design,
-and so studies are conducted to justify the effort put into this problem.
-
-These studies look to measure the theoretical limit of exploitable ILP in a program, by measuring the length of its 
-critical path. The maximum ILP available in a program is then the number of instructions executed in the dynamic 
-execution of the program, divided by the length of the critical path \cite{wall-ilp}.
-
-\subsection{Methodology of limit studies} \label{intro:methodology}
-
-Idealised models of program execution have been used to find the absolute maximum upper bound of ILP. The simulators 
-are fed a trace of an actual program execution on real hardware or a functional simulator~\cite{wall-ilp}.
-Since this trace already provides the program's path of execution, the simulator does not need to compute the results
-of instructions, and so it purely acts as a dependency graph analyser and critical path calculator.
-
-Instructions have static register dependencies, where an instruction will read from and write to a fixed 
-set of registers at its execution. However, instruction dependencies for memory accesses are dynamic, as the accessed 
-memory locations are only decided at runtime. These dependencies for the whole program can be represented by 
-its full dynamic dependency graph (DDG), which is a directed acyclic graph with one node per dynamically executed 
-instruction in a program. The edges of the graph represent dependencies between dynamically executed instructions,
-and so the length of the critical path is the length of the longest path through the program's DDG~\cite{ddg}.
-
+To understand these theoretical limits, studies are conducted to measure the maximum ILP available, through analysis 
+on dynamic execution traces. Tools are used to build a \textit{dynamic dependency graph} (DDG), where nodes represent dynamically 
+executed instructions, and edges represent the dependencies between them. The program's maximum available ILP is 
+calculated by dividing the total number of executed instructions by the length of the longest path (the critical path)
+through the DDG \cite{wall-ilp}. An example DDG is shown in Figure \ref{fig:DDG}.
 
 \begin{figure}[ht]
     \rule{\textwidth}{0.5pt}\vspace{0.2cm}
@@ -122,42 +68,32 @@ and so the length of the critical path is the length of the longest path through
         \end{tikzpicture}
     \end{minipage}
 
-    \caption{Dynamic dependency graph example \cite{ddg}}
-
+    \caption{Example dynamic dependency graph \cite{ddg}}
+    \label{fig:DDG}
     \vspace{0.1cm}\rule{\textwidth}{0.5pt}
 \end{figure}
 
-Limit studies will also vary the parameters of the analysis, using perfect models that ignore all hardware restrictions
-and try to find the theoretical limit of ILP available in a program. Alternatively, they introduce realistic bounds, such as
-control flow models (imperfect branch prediction), and instruction window scaling, where ILP is only computed within a
-smaller window of instructions (instead of the whole program), to identify how `local' a program's ILP is~\cite{wall-ilp, future-ilp, ilp-spec95}.
-
 \section{Motivation} \label{intro:motivation}
 
-% Why do we want to develop a new methodology for limit studies?
+%TODO: Extrapolate naive baseline.
+Traditionally, limit studies compute this longest path using a single-pass sequential sweep over the execution trace, and 
+at each step calculating the length of dependency paths ending at each register. At the end of the trace, it picks out the 
+longest path~\cite{wall-ilp, ilp-spec95, perpi}. Because the algorithm traverses the trace sequentially to propagate
+dependencies, it cannot be heavily parallelised, nor can it exploit the memoisation of program stuctures such as loops.
+This sequentiality limits the ability to handle realistic execution traces containing trillions of instructions,
+which is important for capturing the effects of long-term dependencies found in complex, real-world 
+software. Furthermore, this analysis is rarely a single-pass operation. Limit studies evaluate programs across comprehensive 
+benchmark suites under various parameters, such as restricted instruction windows or different branch prediction models.
 
-Traditionally, simulation models use an algorithm that iterates over the execution trace, and at each step calculates 
-the length of dependency paths ending at each register, eventually picking out the longest path at the end of the trace~\cite{wall-ilp, ilp-spec95, perpi}.
-Because the dynamic trace inherently guarantees that a producer instruction appears before its consumer,
-the trace acts as a topological sort of the DDG. Therefore, starting at the first instruction in the trace,
-the algorithm amounts to a single-pass linear sweep over this topologically sorted graph to calculate the longest path.
+To break this sequential bottleneck, Chadwick \cite{Chadderz} proposes a matrix-based approach. By representing instruction 
+dependencies as matrices, and using matrix multiplication in the max-tropical semiring, computing the longest path in
+the DDG becomes a problem of reducing a large expression of matrix multiplications.
+Because matrix multiplication is associative, the expression can be evaluated in any order, and intermediate results 
+fully encode the dependency information of the instructions they range over. This enables a range of optimisations when 
+computing ILP limits, including thread-parallelisation of computations and memoisation of repetitive intermediate results.
 
-The weakness of this approach is that the traversal of the topological sort of the DDG is inherently sequential and 
-this makes it unscalable for traces containing trillions of instructions. It cannot be heavily parallelised, nor can it 
-exploit memoisation of repetitions in program stucture such as loops.
-
-To break this sequential bottleneck, Chadwick \cite{Chadderz} proposes a matrix-based approach. The idea is to represent the dependencies 
-between each two instructions in the trace as a matrix, and use matrix multiplication in the max-tropical semiring to 
-compute the longest path in the DDG. This approach becomes a problem of reducing a large expression of matrix multiplications.
-
-The primary benefit is that the matrix expression is a divisible computation, due to the associativity of 
-matrix multiplication. The multiplications can be carried out in any order, and intermediate results fully encode the
-dependency information of the instructions they range over. This enables a range of optimisations, including
-thread-level parallelisation, result memoisation, and choosing evaluation orders based on heuristics.
-
-One additional benefit of the associativity of the matrix expression is that it makes instruction window scaling for 
-limit studies much easier. Consider three windows of instructions: A, B, and C (which is comprised of windows A and B
-consecutively).
+One additional benefit of the associativity of the matrix expression is that it trivialises instruction window scaling.
+Consider three windows of instructions: A, B, and C (which is comprised of windows A and B consecutively).
 
 \begin{center}
 \input{diagrams/blocks.tex}
@@ -167,8 +103,18 @@ To compute ILP information for each window, the traditional approach must be exe
 each window. However, the matrix-based approach will only need to run twice, on A and B, and the dependency 
 information matrix for C can simply be obtained by multiplying the result matrices from A and B.
 
-In this project, I explore several approaches for performing Chadwick's matrix-based approach efficiently to build 
-an analysis tool for computing the upper limit of ILP in a program.
-I consider various types of parallelism, including at the data, thread, and accelerator level.
-I then benchmark and evaluate these approaches, demonstrating a performance improvement over the `classical' technique
-for computing dependency chains (which we will refer to as the \textit{naive baseline}).
+\section{Contributions}
+
+In this project, I explore several approaches for offline computation of the upper limit of ILP in a program, and
+compare their performance.
+The first is a sequential approach mirroring the classical trace-analysis techniques, based on the PerPI tool \cite{perpi}. We will 
+refer to this as the `naive baseline' throughout the project.
+I then explore Chadwick's matrix-based approach, implementing a series of algorithmic and hardware-level optimisations.
+Specifically, I use sparse matrix representations to reduce memory overhead, and develop data-level heuristics to 
+determine optimal expression evaluation orders. Finally, I introduce parallel optimisations, leveraging multi-threading 
+and accelerator-level parallelism to distribute the computational workload.
+
+I show experimentally that a single-threaded pipeline equipped with the data-driven optimisations matches the performance 
+of the naive baseline. Furthermore, by distributing expression reduction and matrix multiplication workloads over 
+multiple cores, the parallel approach outperforms the baseline, demonstrating the scalability of the matrix-based approach 
+in analysing large execution traces.
