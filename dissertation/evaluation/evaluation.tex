@@ -111,37 +111,9 @@ as the algorithm is forced to group sub-optimal, lower-frequency pairs, resultin
 is particularly apparent for the variable pair encoder, as the replacement count increases aggressively in later 
 iterations as larger patterns are exploited.
 
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=1\textwidth]{graphs/encoder_time_loop.png}
-  \caption{Comparing runtime of encoding and reduction stages on different datasets, for different encoder parameters, including block 
-  preprocessing and loop finding.}
-  \label{eval:fig:encoder-block-loop-perf}
-\end{figure}
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=1\textwidth]{graphs/encoder_compression_loop.png}
-  \caption{Comparing compression ratio of encoder on different datasets, for different encoder parameters, excluding block 
-  preprocessing and loop finding.}
-  \label{eval:fig:encoder-block-loop-comp}
-\end{figure}
-
-Figures \ref{eval:fig:encoder-block-loop-perf}
-and \ref{eval:fig:encoder-block-loop-comp}
-show off the encoder performance and compression after the block preprocessing and loop-finding optimisations are applied.
-Compared to Figures \ref{eval:fig:encoder-perf} 
-and \ref{eval:fig:encoder-comp}
-we can see that the execution time and compression drops by an order of magnitude, and the curves flatten out considerably. 
-Variable encoder performance is now comparable to that of the fixed pair encoder.
-This shows that the block preprocessing successfully reduces the size of the expression, and the fast loop finder 
-successfully collapses the massive loop structures (like the simple loops of cksum and cksum32) before the encoder sees
-the data. Because the encoder is now working on a reduced skeleton of the expression, the penalty for picking a sub-optimal 
-parameter is heavily mitigated, increasing the robustness of the algorithm.
-
 Figure \ref{eval:fig:encoder-profile} 
-also shows the impact of block-preprocessing and fast loop finding. For highly repetitive traces like 
-cksum the optimisations instantly collapse the expression, allowing the encoder to begin its work on an
+shows the impact of block-preprocessing and fast loop finding on the encoding stage. For highly repetitive traces like 
+cksum, the optimisations collapse the expression before passing it to the encoder, allowing it to begin its work on an
 expression that is already a fraction of the size. This effectively skips the early, slow iterations required to
 compress the loop structures.
 
