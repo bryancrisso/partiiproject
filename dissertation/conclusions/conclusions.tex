@@ -7,18 +7,19 @@ clear pathways for both data-driven and parallel optimisations.
 
 \section{Lessons learned}
 
-The theory of the matrix-based approach was well-established and understood going into the project.
+The theory behind the matrix-based approach was well-established and understood going into the project.
 However, pattern exploitation was not well-defined in the project proposal, and so much 
-of the work in Section \ref{impl:fast-expr} was exploratory and took up more time 
+of the work in Section \ref{impl:fast-expr} was exploratory and took more time 
 than expected. This left little time to deal with the steep learning curves of multithreaded and GPU programming, and 
 highlighted the importance of domain knowledge and tool preparation. Additionally, these hardware optimisations were 
 developed and optimised locally on my laptop, and not iteratively tested on suitable hardware. For the multithreaded
-approach, this meant that the many more cores on server hardware were not impactful enough to overtake the fewer, 
+approach, this meant that utilising more cores on the server hardware was not impactful enough to overtake the fewer, 
 yet more powerful laptop cores.
 
 Evaluation proved to be a tricky part of the project. While its importance was understood, my methodology was 
-underdeveloped and so I was unable to incrementally evaluate my progress. Instead, much of the project was benchmarked 
-all at once during the writeup, and this made fixing critical performance bugs more difficult.
+initially underdeveloped and so I was unable to thoroughly evaluate my progress as I made changes.
+Instead, much of the project was benchmarked all at once during the writeup, and this made fixing critical performance
+bugs more difficult.
 
 \section{Future work}
 
