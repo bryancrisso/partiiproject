@@ -140,7 +140,7 @@ This corresponds to the longest distance matrix between all pairs of nodes.
 
 \subsection{Forming the columnar DDG} \label{prep:register-only-chains}
 
-As defined in Section \ref{intro:methodology}, a standard DDG represents 
+As defined in Section \ref{intro:background}, a standard DDG represents 
 each dynamically executed instruction as a single node. While this formulation is intuitive for visualising the program 
 flow, the structure of the graph is arbitrary, and we would wish to impose a more rigid structure to allow for future
 optimisations, as outlined in Section \ref{prep:alternative-matrix-struct}.
@@ -191,7 +191,7 @@ computationally unfeasible.
 Section \ref{prep:register-only-chains} stated that constructing a full adjacency 
 matrix is computationally unfeasible for realistic program traces, as they contain trillions of dynamic instructions. 
 
-We propose an alternative representation to the full adjacency matrix.
+Chadwick \cite{Chadderz} proposes an alternative representation to the full adjacency matrix.
 There is a particular structure in the DDGs we construct: they are more long than wide.
 In the DDG, edges \textit{only} exist between adjacent columns, and so a full adjacency matrix $X$ is mostly filled
 with $-\infty$. We can instead model a DDG as a sequence of adjacent columns. 

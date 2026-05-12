@@ -16,7 +16,7 @@ and concluding with acceleration of compute using additional hardware
 
 \section{Naive Baseline} \label{impl:naive-baseline}
 
-As described in Section \ref{intro:methodology}, classical techniques for 
+As described in Section \ref{intro:motivation}, classical techniques for 
 ILP limit studies rely on sequential algorithms that iterate through a program trace. Inspired by the PerPI tool \cite{perpi},
 the algorithm presented below calculates the longest path through the DDG formulated in Section \ref{prep:register-only-chains}.
 
@@ -243,14 +243,14 @@ beginning of a row are not evicted by the time we get to the end of the row, whi
 
 While matrix tiling is a popular optimisation, it introduces complex control-flow overhead. Because we only track
 register dependencies, our matrices are only approximately $64 \times 64$ in size.
-Assuming cells hold 32-bit integers, an entire matrix just requires $16384$ bytes, fitting comfortably withinn the 
+Assuming cells hold 32-bit integers, an entire matrix just requires $16384$ bytes, fitting comfortably within the 
 32KiB or 64KiB L1 data cache of a modern processor core. Therefore, tiling is unnecessary in our case and the control
 flow overhead is wasteful; instead, the contiguous linear traversal already provides the improved performance by aligning
 perfectly with hardware prefetchers.
 
 \subsection{Sparse Matrices}
 
-In the previous matrix multiplication algorithm, we presented an optimisation that exploited the sparsity of matrices.
+In Section \ref{impl:traversal-order}, we presented an optimisation that exploited the sparsity of matrices.
 This provided a significant speedup to multiplications, and so we may be able to extract further benefits from 
 exploiting matrix sparsity.
 
@@ -282,24 +282,37 @@ indices ($JA$) and numerical values ($VA$) of the \textit{non-negative-infinity}
 these elements is row-wise. The third array is a set of row address pointers ($IA$) where the $i$th element of $IA$ is 
 the address in both $JA$ and $VA$ of the first \textit{non-negative-infinity} element of the $i$th row of $A$.
 
-For example, the matrix:
+\noindent
+\raggedright % Removes justification for the text below
+For example, the matrix below is stored as the following arrays:
+\vspace{-0.5em} % Space above the diagram
 
-$$
-\begin{pmatrix}
-  5 & -\infty & -\infty & -\infty \\ 
-  -\infty & 8 & -\infty & -\infty \\ 
-  -\infty & 1 & 3 & -\infty \\ 
-  -\infty & 6 & -\infty & -\infty \\
-\end{pmatrix}
-$$
-
-Is stored as:
-
-\begin{lstlisting}[frame=none,numbers=none]
+\begin{center} % Optional: Centers the whole group on the page
+\noindent
+\begin{minipage}[c]{0.35\textwidth}
+  \[
+  \begin{pmatrix}
+    5 & -\infty & -\infty & -\infty \\ 
+    -\infty & 8 & -\infty & -\infty \\ 
+    -\infty & 1 & 3 & -\infty \\ 
+    -\infty & 6 & -\infty & -\infty \\
+  \end{pmatrix}
+  \]
+\end{minipage}
+\begin{minipage}[c]{0.1\textwidth}
+  \centering
+  $\xrightarrow{}$ % An arrow with text, or just use $\implies$
+\end{minipage}
+\begin{minipage}[c]{0.45\textwidth}
+\begin{lstlisting}[frame=none,numbers=none,basicstyle=\small\ttfamily]
 IA = [0, 1, 2,    4, 5]
 JA = [0, 1, 1, 2, 1]
 VA = [5, 8, 1, 3, 6]
 \end{lstlisting}
+\end{minipage}
+\end{center}
+
+\vspace{0.5em} % Space below the diagram
 
 To extract a row $i$, we define:
 
