@@ -83,7 +83,7 @@ dependencies, it cannot be heavily parallelised, nor can it exploit the memoisat
 This sequentiality limits the ability to handle realistic execution traces containing trillions of instructions,
 which is important for capturing the effects of long-term dependencies found in complex, real-world 
 software. Furthermore, this analysis is rarely a single-pass operation. Limit studies evaluate programs across comprehensive 
-benchmark suites under various parameters, such as restricted instruction windows or different branch prediction models.
+benchmark suites under various parameters, such as restricted instruction windows or different branch prediction models~\cite{wall-ilp, future-ilp, ilp-spec95}.
 
 To break this sequential bottleneck, Chadwick \cite{Chadderz} proposes a matrix-based approach. By representing instruction 
 dependencies as matrices, and using matrix multiplication in the max-tropical semiring, computing the longest path in
