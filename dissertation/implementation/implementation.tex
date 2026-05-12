@@ -17,10 +17,16 @@ and concluding with acceleration of compute using additional hardware
 \section{Naive Baseline} \label{impl:naive-baseline}
 
 As described in Section \ref{intro:motivation}, classical techniques for 
-ILP limit studies rely on sequential algorithms that iterate through a program trace. Inspired by the PerPI tool \cite{perpi},
-the algorithm presented below calculates the longest path through the DDG formulated in Section \ref{prep:register-only-chains}.
+ILP limit studies rely on sequential algorithms that iterate through a program trace.
+While public tools such as PerPI \cite{perpi} employ these sequential algorithms, they are not suitable as a
+baseline in this project. PerPI is an online analysis tool that is injected into x86 binaries using Intel's Pin tool,
+and computes ILP at runtime.
+This conflicts with Chadwick's approach, which performs an offline analysis on AArch64 execution traces dumped from regular execution, 
+making parametrisation of studies easier.
+To enable a more compatible comparison, I implemented a custom baseline, inspired by PerPI's core procedure for computing ILP.
+Algorithm \ref{alg:naive-baseline} calculates the longest path through the DDG formulated in Section \ref{prep:register-only-chains}.
 
-For each instruction in the program trace, Algorithm \ref{alg:naive-baseline}:
+For each instruction in the program trace, the algorithm
 \begin{enumerate}
   \item  Evaluates static read dependencies to find the maximum dependency chain length ending in a given register.
   \item  Evaluates static write dependencies to propagate this longest chain forwards.
@@ -837,8 +843,9 @@ the kernel include:
 % Synchronous GPU handler and dispatcher design
 
 To execute the kernel on the GPU, we need to implement a dispatcher, that batches and executes multiplications,
-and then collects the results, resolving dependencies as needed. Dependency resolution logic is similar to the logic in 
+and then collects the results, resolving dependencies as needed. Dependency resolution is similar to the logic in 
 Section \ref{impl:split-compute}, but differs slightly as multiplications are batched.
+The dispatcher replaces the multi-threaded evaluation component in the parallel pipeline from Figure \ref{fig:multi-threaded-pipeline}.
 
 For simplicity, we opted to use a synchronous dispatcher thread and a dependency aggregator thread. 
 The synchronous dispatcher thread operates as follows:
