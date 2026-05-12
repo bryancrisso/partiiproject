@@ -33,7 +33,7 @@ $$
 \end{aligned}
 $$
 
-The tropical semiring satisfies the axioms of a semiring, from Definition \ref{def:semiring}.
+The tropical semiring satisfies the axioms of a semiring (defined in Appendix \ref{apdx:proofs}).
 It is not a ring as the max operator does not have an inverse.
 
 \end{definition}
@@ -311,7 +311,7 @@ Most standard benchmark suites consist of huge execution traces, and smaller sui
 The chosen traces achieve a middle ground of being small enough for quick testing during iterative development, but 
 are also real, commonly used programs that are doing realistic work.
 
-\subsection{Data properties}
+\subsection{Data properties} \label{prep:data-properties}
 
 Many of the optimisations in this project revolve around exploiting patterns in the datasets by varying evaluation orders 
 and memoising intermediate results. To motivate these optimisations, we can perform an analysis on the execution traces 

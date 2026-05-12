@@ -12,8 +12,6 @@ continuing to data-driven optimisations
 and concluding with acceleration of compute using additional hardware
 (Sections \ref{impl:parallelisation} and \ref{impl:gpu}).
 
-%TODO: Table for listing optimisations?
-
 \section{Naive Baseline} \label{impl:naive-baseline}
 
 As described in Section \ref{intro:motivation}, classical techniques for 
@@ -71,7 +69,7 @@ function findLongestPath(int[] trace, map<int, StaticDep> deps) -> int {
 
 We can verify a result from the algorithm by inspecting a small example.
 
-The \verb|cksum| program trace (Section \ref{prep:datasets}) has a small inner loop of 
+The \verb|cksum| program trace (See section \ref{prep:data-properties}) has a small inner loop of 
 7 instructions; this basic block repeats 65536 times per invocation.
 
 \begin{figure}[H]
