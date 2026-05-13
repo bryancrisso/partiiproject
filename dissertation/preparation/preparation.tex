@@ -278,21 +278,20 @@ from Theorem \ref{thm:mat-exp-longest-paths}.
   we are simply performing the exact operations for finding the longest path between columns 1 and 3,
   but restricted only to the intermediate nodes $k$ located in column $2$.
   This is valid as edges in the DDG only exist between adjacent columns.
-
   Because the padding of 0 cost edges ensures every path spans from the first column to the final column, multiplying 
   all consecutive column matrices sequentially computes the maximum path length across the entire graph.
 \end{corollary}
-
-This defines the final shape of the data that we will be working on as a mathematical expression consisting of a
-series of matrix multiplications. The corollary theoretically satisfies the success criteria for the MPF requirement 
-in Table \ref{tbl:requirements-analysis}, and
-tool outputs in Appendix \ref{apdx:outputs} verify this operationally.
 
 We can use the column-wise approach to represent the alternative DDG structure from Section \ref{prep:register-only-chains}.
 Because each dynamic instruction has a static set of dependencies, represented by a matrix, and because there are many 
 more dynamic instructions in the DDG than the number of static instructions in the program, we will see frequent reuse 
 of matrices in the equation, allowing us to find and exploit common patterns, and further reducing the actual memory 
 required to store the DDG.
+
+This defines the final shape of the data that we will be working on as a mathematical expression consisting of a
+series of matrix multiplications. The corollary theoretically satisfies the success criteria for the MPF requirement 
+in Table \ref{tbl:requirements-analysis}, and
+tool outputs in Appendix \ref{apdx:outputs} verify this operationally.
 
 \section{Datasets} \label{prep:datasets}
 
@@ -446,3 +445,5 @@ respectively solidified my understanding of ILP and limit studies, and of multi-
 
 I used the datasets listed in Section \ref{prep:datasets} alongside custom tooling provided by Alexandra 
 Chadwick to generate information for the dependency matrices and branch structure of the trace.
+
+No code was written before the project proposal deadline of 10/10/2025.
