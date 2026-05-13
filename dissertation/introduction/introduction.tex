@@ -114,7 +114,8 @@ Specifically, I use sparse matrix representations to reduce memory overhead, and
 determine optimal expression evaluation orders. Finally, I introduce parallel optimisations, leveraging multi-threading 
 and accelerator-level parallelism to distribute the computational workload.
 
-I show experimentally that a single-threaded pipeline equipped with the data-driven optimisations matches the performance 
+I show experimentally in Section \ref{eval:holistic-pipeline}
+that a single-threaded pipeline equipped with the data-driven optimisations matches or beats the performance 
 of the naive baseline. Furthermore, by distributing expression reduction and matrix multiplication workloads over 
-multiple cores, the parallel approach outperforms the baseline, demonstrating the scalability of the matrix-based approach 
-in analysing large execution traces.
+multiple cores, I show that the parallel approach is at least twice as fast as the baseline,
+demonstrating the scalability of the matrix-based approach in analysing large execution traces.

@@ -19,9 +19,62 @@ Timings and metrics were collected with a custom metrics registry that recorded 
 timestamps, in local thread memory, before flushing to a CSV format at the end of execution. 
 Each configuration of parameters for a benchmark was executed 5 times, and then the median time reported.
 
+\section{Holistic pipeline} \label{eval:holistic-pipeline}
+
+This section compares all notable implementations to the naive baseline (Section \ref{impl:naive-baseline}).
+The notable implementations are the single-threaded pipeline (Figure \ref{fig:single-threaded-pipeline}), 
+the parallel pipeline (Figure \ref{fig:multi-threaded-pipeline}), and the GPU-enabled 
+pipeline, which is similar to the parallel pipeline except the GPU performs the evaluation instead of a set of CPU cores.
+
+4 encoder threads and 12 compute threads were used for the parallel approach. Fast loop finding was enabled, and the
+variable pair encoder with $r=0.4$ was used. For the single-threaded and parallel pipelines, sparse matrix representations 
+were used, but the GPU-enabled pipeline made use of dense matrices.
+
+\begin{figure}[htbp]
+  \centering
+  \includegraphics[width=1\textwidth]{graphs/holistic/pipelines.png}
+  \caption{Comparing the speedup for different pipeline implementations.}
+  \label{eval:fig:all-pipelines}
+\end{figure}
+
+\begin{table}[ht]
+  \centering
+\begin{tabular}{l c c c c}
+  \toprule
+  \textbf{Dataset} & \textbf{NB} & \textbf{Single} & \textbf{Para.} & \textbf{GPU} \\
+  \midrule
+  cksum   & 10.9 & 42.6 & 51.8 & 915.3 \\
+  cksum32 & 11.0 & 535.1 & 547.7 & 1319.4 \\
+  factor  & 10.9 & 1624.1 & 947.0 & 13076.3 \\
+  sha1sum & 11.4 & 39.2 & 53.9 & 992.4 \\
+  shuf    & 11.4 & 95.2 & 83.0 & 1107.5 \\
+  sort    & 11.7 & 156.5 & 158.5 & 1434.0 \\
+  \bottomrule
+\end{tabular}
+\caption{Memory usage breakdown for each approach (MB, maximum resident set size)}
+\label{tbl:memory-breakdown}
+\end{table}
+
+Figure \ref{eval:fig:all-pipelines} shows that 
+across every single program trace, the fully parallel pipeline is 2 to 10 times faster than the naive baseline. 
+Parallelisation clearly accelerates reduction, but trace loading unchanged; the sequential I/O involved visualises Amdahl's Law.
+For easily reducible traces (cksum32 and sha1sum), loading the trace dominates the program's lifecycle,
+implying diminishing returns for further parallelisation.
+Furthermore, the GPU approach is universally slower than the parallel CPU approach, and in cases like cksum or factor 
+is slower than the single-threaded CPU approach. %TODO: WHY is the io so much slower?? PROBABLY because it is not lock-free.
+
+Finally, Table \ref{tbl:memory-breakdown} provides an overview of 
+memory footprints. Matrix based approaches predictably use more memory, as
+not only does the system store more data in matrices, but also requires the entire trace to be loaded simultaneously
+for reduction, whereas the baseline streams the trace from disk and discards it after processing.
+The GPU approach has the largest footprint. It uses dense matrix representations, 
+and its poor throughput creates a large backlog of pending multiplications. Because result memory is 
+allocated upon queueing, the system is forced to hold memory for both operands and the pending 
+result for extended periods of time while the GPU clears the backlog.
+
 \section{Algorithmic and data-driven optimisations}
 
-This section assesses the impact of the data-driven optimisations presented in Sections \ref{impl:matrices}
+This section evaluates the impact of the data-driven optimisations presented in Sections \ref{impl:matrices}
 and \ref{impl:fast-expr}, to assess the PE requirement from Table \ref{tbl:requirements-analysis}.
 Benchmarks are performed using the single-threaded 
 pipeline from Figure \ref{fig:single-threaded-pipeline}, in some cases with 
@@ -195,7 +248,7 @@ Overall, I believe this single-threaded pipeline satisfies the success criteria 
 
 \section{Concurrency and GPU analysis}
 
-This section assesses the impact of the parallel optimisations presented in Sections \ref{impl:parallelisation}
+This section breaks down the parallel optimisations presented in Sections \ref{impl:parallelisation}
 and \ref{impl:gpu}, to assess the the MP and GA project requirements from Table \ref{tbl:requirements-analysis}.
 
 Benchmarks are performed using the multi-threaded pipeline from Figure \ref{fig:multi-threaded-pipeline}.
@@ -307,55 +360,3 @@ The success criteria for the requirement GA in Table \ref{tbl:requirements-analy
 has been met, as we did successfully offload multiplications to the GPU, although throughput never overtook overhead.
 \enlargethispage{2\baselineskip}
 
-\section{Holistic Pipeline}
-
-This section evaluates all notable implementations against the naive baseline (Section \ref{impl:naive-baseline}).
-The notable implementations are the single-threaded pipeline (Figure \ref{fig:single-threaded-pipeline}), 
-the parallel pipeline (Figure \ref{fig:multi-threaded-pipeline}), and the GPU-enabled 
-pipeline, which is similar to the parallel pipeline except the GPU performs the evaluation instead of a set of CPU cores.
-
-4 encoder threads and 12 compute threads were used for the parallel approach. Fast loop finding was enabled, and the
-variable pair encoder with $r=0.4$ was used. For the single-threaded and parallel pipelines, sparse matrix representations 
-were used, but the GPU-enabled pipeline made use of dense matrices.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=1\textwidth]{graphs/holistic/pipelines.png}
-  \caption{Comparing the speedup for different pipeline implementations.}
-  \label{eval:fig:all-pipelines}
-\end{figure}
-
-\begin{table}[ht]
-  \centering
-\begin{tabular}{l c c c c}
-  \toprule
-  \textbf{Dataset} & \textbf{NB} & \textbf{Single} & \textbf{Para.} & \textbf{GPU} \\
-  \midrule
-  cksum   & 10.9 & 42.6 & 51.8 & 915.3 \\
-  cksum32 & 11.0 & 535.1 & 547.7 & 1319.4 \\
-  factor  & 10.9 & 1624.1 & 947.0 & 13076.3 \\
-  sha1sum & 11.4 & 39.2 & 53.9 & 992.4 \\
-  shuf    & 11.4 & 95.2 & 83.0 & 1107.5 \\
-  sort    & 11.7 & 156.5 & 158.5 & 1434.0 \\
-  \bottomrule
-\end{tabular}
-\caption{Memory usage breakdown for each approach (MB, maximum resident set size)}
-\label{tbl:memory-breakdown}
-\end{table}
-
-Figure \ref{eval:fig:all-pipelines} shows that 
-across every single program trace, the fully parallel pipeline is 2 to 10 times faster than the naive baseline. 
-Parallelisation clearly accelerates reduction, but trace loading unchanged; the sequential I/O involved visualises Amdahl's Law.
-For easily reducible traces (cksum32 and sha1sum), loading the trace dominates the program's lifecycle,
-implying diminishing returns for further parallelisation.
-Furthermore, the GPU approach is universally slower than the parallel CPU approach, and in cases like cksum or factor 
-is slower than the single-threaded CPU approach. %TODO: WHY is the io so much slower?? PROBABLY because it is not lock-free.
-
-Finally, Table \ref{tbl:memory-breakdown} provides an overview of 
-memory footprints. Matrix based approaches predictably use more memory, as
-not only does the system store more data in matrices, but also requires the entire trace to be loaded simultaneously
-for reduction, whereas the baseline streams the trace from disk and discards it after processing.
-The GPU approach has the largest footprint. It uses dense matrix representations, 
-and its poor throughput creates a large backlog of pending multiplications. Because result memory is 
-allocated upon queueing, the system is forced to hold memory for both operands and the pending 
-result for extended periods of time while the GPU clears the backlog.
