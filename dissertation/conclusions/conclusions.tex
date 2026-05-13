@@ -1,11 +1,11 @@
 \chapter{Conclusions}
-
-The project was overall a success. The analysis tool built offers a direct performance improvement (between 2 and 10x, see 
-Section \ref{eval:holistic-pipeline}) over the classical 
-techniques for conducting ILP limit studies. All the minimum success criteria were met, and nearly all the extensions have 
-been implemented with varying levels of success. The associativity of the matrix approach has been shown to offer 
+\vspace{-10pt}
+The matrix-based approach offers a direct performance improvement (a 2-10x times speedup, see 
+Section \ref{eval:holistic-pipeline}) over a classical baseline when conducting ILP limit studies.
+All the minimum success criteria were met, and nearly all original extensions were 
+implemented with varying levels of success. The associativity of the matrix expression shows
 clear pathways for both data-driven and parallel optimisations.
-
+\vspace{-10pt}
 \section{Lessons learned}
 
 The theory behind the matrix-based approach was well-established and understood going into the project.
@@ -21,18 +21,16 @@ Evaluation proved to be a tricky part of the project. While its importance was u
 initially underdeveloped and so I was unable to thoroughly evaluate my progress as I made changes.
 Instead, much of the project was benchmarked all at once during the writeup, and this made fixing critical performance
 bugs more difficult.
-
+\vspace{-10pt}
 \section{Future work}
+\enlargethispage{2\baselineskip}
 
 Listed are shortcomings of the analysis tool that could be addressed in the future.
 
 \begin{itemize}
-  \item The GPU pipeline did not make full use of the available compute. The memory layout could be optimised for
-    contiguous storage, a double-buffered dispatch architecture implemented to hide overhead, and 
-    a hybrid system built that simultaneously multiplies matrices on CPU threads to maximise throughput.
-  \item The tool's memory usage is unbounded and problematic.
-    More work could be done to ensure that the maximum memory usage is safely limited 
-    during analysis of realistic traces of trillions of dynamic instructions.
+  \item The GPU pipeline was inefficient. The memory layout could be optimised alongside a new double-buffered dispatch 
+    architecture to reduce data management overhead. The CPU could also have been used for multiplications concurrently,
+    maximising throughput.
   \item I/O and parsing form a sequential bottleneck for the analysis tool when loading the initial expression. 
     An alternative binary-based format could be developed to speed up loading and reduce the bottleneck.
   \item The tool only tracked register dependencies. While this is still useful for smaller subtraces that keep their 
@@ -41,5 +39,4 @@ Listed are shortcomings of the analysis tool that could be addressed in the futu
     assessed on more complex program traces involving memory dependencies.
 \end{itemize}
 
-Overall, the project achieved its goals, and I think it was an interesting project, bridging gaps between concepts in 
-processor design, graph theory, compression and parallel computing.
+Overall, the project achieved its goals, and was an interesting problem covering many domains.
