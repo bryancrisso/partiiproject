@@ -283,10 +283,9 @@ from Theorem \ref{thm:mat-exp-longest-paths}.
 \end{corollary}
 
 We can use the column-wise approach to represent the alternative DDG structure from Section \ref{prep:register-only-chains}.
-Because each dynamic instruction has a static set of dependencies, represented by a matrix, and because there are many 
-more dynamic instructions in the DDG than the number of static instructions in the program, we will see frequent reuse 
-of matrices in the equation, allowing us to find and exploit common patterns, and further reducing the actual memory 
-required to store the DDG.
+Each dynamic instruction has a static set of dependencies represented by a matrix, and there are many 
+more dynamic instructions in the DDG than the number of static instructions in the program. Therefore, there will be
+frequent reuse of matrices in the equation, which further reduces the actual memory required to store the DDG.
 
 This defines the final shape of the data that we will be working on as a mathematical expression consisting of a
 series of matrix multiplications. The corollary theoretically satisfies the success criteria for the MPF requirement 
@@ -355,7 +354,7 @@ the total length of all PM-repeats with the same repeating substring respectivel
 The table shows that all datasets
 exhibit a `largest pattern' covering a significant proportion of the trace. This pattern is built of several PM-repeats 
 with the same repeating substring, but separated/split by other symbols. We can deduce that each of the PM-repeats 
-corresponds to an invocation of the same loop, which executes for some varying number of iterations. Each invocation 
+correspond to an invocation of the same loop, which executes for some varying number of iterations. Each invocation 
 of the loop is separated by other instructions, with their own varying dependency information.
 
 This pattern can be exploited in two ways:
@@ -417,20 +416,13 @@ and categorised by their priority, according to the MoSCoW method guidelines \ci
 \subsection{Project tooling}
 
 The choice of tools was driven by the need for low-level hardware transparency, balanced with architectural flexibility.
-
-C++ was selected as the primary programming language, for three critical reasons:
-
-\begin{enumerate}
-  \item It allows for fine-grained memory control, which is essential for performance-sensitive code, allowing for 
-    manual cache alignment and minimising overhead from garbage collection pauses.
-  \item It provides modern object-oriented paradigms, which allow for the use of design patterns to easily hot-swap 
-    different strategies for matrix multiplication and pattern exploitation.
-  \item It facilitates the use of SIMD (Single Instruction, Multiple Data) intrinsics for further low-level optimisation.
-\end{enumerate}
+C++ was selected as the primary programming language as it allows for fine-grained memory control (which is important 
+for peformance-sensitive code by avoiding expensive garbage collection), and provides modern object-oriented paradigms
+enabling the use of design patterns to easily swap between strategies when testing and benchmarking.
 
 While CUDA provides a highly optimized environment for Nvidia hardware, OpenCL was chosen for its cross-platform portability.
-This allowed for development and kernel debugging on integrated Intel graphics (laptop) before deploying to high-performance 
-Nvidia/AMD discrete GPUs for final benchmarking.
+This allowed for development and kernel debugging on integrated Intel graphics (laptop) before deploying to a high-performance 
+discrete Nvidia GPU for final benchmarking.
 
 \subsection{Starting point}
 

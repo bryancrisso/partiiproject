@@ -3,7 +3,7 @@
 \section{Methodology}
 
 The analysis tools were benchmarked on the program execution traces described in \ref{prep:datasets}.
-Benchmarks were executed locally on my own laptop, with the following hardware specs:
+Benchmarks were executed locally on my own laptop with the following hardware specs:
 \begin{description}[noitemsep, topsep=0pt]
   \item[CPU:] 12th Gen Intel(R) Core(TM) i7-12700H.
   \item [RAM:] 16GiB LPDDR5 @ 6000MT/s
@@ -65,7 +65,7 @@ is slower than the single-threaded CPU approach. %TODO: WHY is the io so much sl
 
 Finally, Table \ref{tbl:memory-breakdown} provides an overview of 
 memory footprints. Matrix based approaches predictably use more memory, as
-not only does the system store more data in matrices, but also requires the entire trace to be loaded simultaneously
+not only does the system store more data in matrices but also requires the entire trace to be loaded simultaneously
 for reduction, whereas the baseline streams the trace from disk and discards it after processing.
 The GPU approach has the largest footprint. It uses dense matrix representations, 
 and its poor throughput creates a large backlog of pending multiplications. Because result memory is 
@@ -128,7 +128,7 @@ We immediately observe that the execution time curves for fixed pair counts are 
 For instance, the optimal $p$ for cksum32 is vastly different from the optimal $p$ for sort.
 Using a fixed $p$ is brittle because it does not scale with the size or 
 entropy of the execution trace. Replacing $2^5$ pairs in a large, high-entropy trace may do close to nothing (wasting 
-time on frequency analyses), whereas replacing $2^5$ pairs in a small trace with lots of patterns may aggressively 
+time on frequency analyses) whereas, replacing $2^5$ pairs in a small trace with lots of patterns may aggressively 
 combine matrices, destroying the compression ratio, therefore a "universal sweet spot" for $p$ does not exist.
 
 Compare this to the execution time curves for the variable parameter. They are much smoother and form a gentle U shape 
@@ -236,7 +236,7 @@ Performance improves for the shuf and factor traces, but interestingly, the tota
 The greedy nature of the loop finder led to a worse evaluation order, but performing more 
 multiplications is cheaper compared to the cost of the frequency analyses in the encoding stage.
 This trade-off does not translate to sort, however, as the performance is notably worse, and many more multiplications 
-are made. This implies that the greedy approach has much worse efficiency for this trace, and the complex 
+are made. This implies that the greedy approach has much worse efficiency for this trace and the complex 
 branch structure of the underlying merge sort algorithm is better suited to a pure pair encoding approach.
 
 Because the loader stage involves sequential I/O work, this becomes the primary sequential bottleneck for our analysis tool.
@@ -305,7 +305,7 @@ harshly tapers off beyond the 4:12 thread configuration. This could be caused by
 
 Section \ref{impl:enc-scaling} explains that splitting the expression into more,
 smaller chunks damages the encoder's overall efficiency. Figure \ref{eval:fig:multi-thread-compression} 
-quantifies this, with a decrease in compression ratio from 7 to 5 representing a 40\% increase in the number of
+quantifies this with a decrease in compression ratio from 7 to 5 representing a 40\% increase in the number of
 multiplications required to reduce the final expression. This may contribute to poor scaling with more chunks, but since
 the lag time is still close to zero in this case, the compute threads are still able to keep up with the increased number
 of queued multiplications.

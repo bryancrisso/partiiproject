@@ -9,9 +9,9 @@ at the cost of greater use of memory.
 \textit{Instruction level parallelism} (ILP) is the simultaneous execution of independent instructions in a computer processor~\cite{hennessy_patterson}.
 A pair of instructions from a thread of execution are independent when there exist no dependencies (specifically data,
 control or structural dependencies) between them. An instruction dependent on a previous one must be executed strictly
-after the former has completed execution, to ensure correct execution of the entire program.
+after the former has completed execution to ensure correct execution of the entire program.
 
-Modern superscalar processors commonly exploit ILP to increase throughput and hide latency \cite{shen2013modern}. The absolute limit of 
+Modern superscalar processors exploit ILP to increase throughput and hide latency \cite{shen2013modern}. The absolute limit of 
 exploitable ILP is dependent on the structure of the executed program. A dynamic execution of a program will have a
 `critical path' of instructions, each data-dependent on the previous, that have to be executed sequentially.
 
@@ -75,10 +75,9 @@ through the DDG \cite{wall-ilp}. An example DDG is shown in Figure \ref{fig:DDG}
 
 \section{Motivation} \label{intro:motivation}
 
-%TODO: Extrapolate naive baseline.
-Traditionally, limit studies compute this longest path using a single-pass sequential sweep over the execution trace, and 
-at each step calculating the length of dependency paths ending at each register. At the end of the trace, it picks out the 
-longest path~\cite{wall-ilp, ilp-spec95, perpi}. Because the algorithm traverses the trace sequentially to propagate
+Traditionally, limit studies compute this longest path using a single-pass sequential sweep over the execution trace.~\cite{wall-ilp, ilp-spec95, perpi}
+At each step they calculate the length of dependency paths ending at each register, and pick out the longest path at the 
+end of the trace. Because the algorithm traverses the trace sequentially to propagate
 dependencies, it cannot be heavily parallelised, nor can it exploit the memoisation of program stuctures such as loops.
 This sequentiality limits the ability to handle realistic execution traces containing trillions of instructions,
 which is important for capturing the effects of long-term dependencies found in complex, real-world 
@@ -91,13 +90,12 @@ the DDG becomes a problem of reducing a large expression of matrix multiplicatio
 Because matrix multiplication is associative, the expression can be evaluated in any order, and intermediate results 
 fully encode the dependency information of the instructions they range over. This enables a range of optimisations when 
 computing ILP limits, including thread-parallelisation of computations and memoisation of repetitive intermediate results.
-
 One additional benefit of the associativity of the matrix expression is that it trivialises instruction window scaling.
 Consider three windows of instructions: A, B, and C (which is comprised of windows A and B consecutively).
 
-\begin{center}
-\input{diagrams/blocks.tex}
-\end{center}
+% \begin{center}
+% \input{diagrams/blocks.tex}
+% \end{center}
 
 To compute ILP information for each window, the traditional approach must be executed 3 times, once for 
 each window. However, the matrix-based approach will only need to run twice, on A and B, and the dependency 

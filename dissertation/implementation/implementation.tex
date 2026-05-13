@@ -180,14 +180,14 @@ function multiply(Matrix<n,m> X, Matrix<m,p> Y) {
 Modern CPU caching exploits spatial locality of reference, where if a piece of data is accessed by the CPU, other pieces
 of data in close proximity in memory will be in the same cache line or prefetched into the cache, therefore reducing the
 chance of an expensive cache miss on subsequent cycles.
-In the chosen algorithm, matrices $X$ and $Y$ are both stored in row-major order, yet inside the inner loop, $X$ is
+In the chosen algorithm, matrices $X$ and $Y$ are both stored in row-major order. However, inside the inner loop, $X$ is
 being traversed row-wise, and $Y$ is being traversed column-wise. The elements of Y being accessed on consecutive
 iterations are not in close proximity to each other in memory, and so cache misses dominate the running time, rather
 than the actual calculations.
 
 This issue can be avoided by storing matrices in both row-major and column-major order. Then, depending on whether the
 matrix is the right or left operand in a multiplication, we can select the most cache-friendly option to traverse.
-This however, doubles our memory usage, and so we instead try to change the order in which we access elements of the matrices.
+This however, doubles our memory usage and so, we instead try to change the order in which we access elements of the matrices.
 
 \subsection{Traversal order and cache performance} \label{impl:traversal-order}
 
@@ -366,8 +366,7 @@ identification, and a basic reduction strategy.
 
 The `matrix expression' is formed using pointers to the matrix objects on the heap.
 Because a matrix holding the static dependency information of an instruction may be referenced multiple times 
-within the program trace, we employ a reference counting mechanism and a pool of `free' and `used' matrices, to manage 
-the lifecycle of matrices efficiently.
+within the program trace, we employ a reference counting mechanism and a pool of `free' and `used' matrices.
 
 \begin{description}
   \item [Initialisation:] When a matrix is first created, its reference count is set to one. The memory for the matrix 
@@ -395,7 +394,7 @@ system queries this map. If a hit is found, the reference count of $P_C$ is incr
 skipped.
 
 To reduce the expression to the final matrix without exploiting data patterns, we can use a multi-pass tree-reduction
-approach. At each pass, adjacent matrices are multiplied together, and this is repeated until only one matrix is left.
+approach. At each pass, adjacent matrices are multiplied together and this is repeated until only one matrix is left.
 This allows for multiplications to be batched, which will be useful when delegating computation
 (see Section \ref{impl:split-compute}).
 
@@ -710,14 +709,14 @@ Once both of its dependencies are resolved, a job is pushed to the ready queue, 
 Upon execution of a job (as shown in Algorithm \ref{alg:async-mults}), we inspect
 the job's dependents. If both operands of a dependent have been satisfied, it is scheduled for execution.
 
-Jobs are acquired with read-locks for inspection, and write-locks for modification, eliminating data races between 
+Jobs are acquired with read-locks for inspection and write-locks for modification, eliminating data races between 
 threads queueing new multiplications and threads evaluating jobs and resolving their dependencies. The use of fine-grained 
 bucket-level locking aims to reduce contention compared to a global mutex.
 
 \FloatBarrier
 \subsection{Work-sharing}
 
-Work sharing distributes large computational tasks across several processor cores, maximising efficiency. By chunking
+Work sharing distributes large computational tasks across several processor cores maximising efficiency. By chunking
 our workload into many identical subtasks, and using many threads to process the subtasks, we can increase throughput
 when compared to a single thread.
 
@@ -754,7 +753,7 @@ expression built from the resulting matrices is evaluated. By parallelising and 
 discovery, we can keep the matrix multiplication thread pool saturated.
 
 However, performing local frequency analysis on smaller chunks of the expression reduces the overall efficiency of the 
-encoding stage. The BPE-adjacent approach performs best with global frequency values, as the frequency distribution
+encoding stage. The BPE-adjacent approach performs best with global frequency values as the frequency distribution
 within a single chunk may not reflect the frequency distribution of the whole expression. This often leads to a 
 worse evaluation order within each chunk, requiring more multiplications to reduce the expression as a whole, but we
 hope to offset this extra work by utilising more compute. The impact on efficiency is explored in Section \ref{eval:concurrency}.
