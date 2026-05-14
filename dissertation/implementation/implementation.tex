@@ -333,7 +333,7 @@ The CSR format saves on memory only when $nni < (m (n - 1) - 1)/2$.
 \subsubsection{Sparse Matrix Multiplication}
 
 Gustavson \cite{gustavson-sparse} proposes an algorithm for multiplying two matrices $A$ and $B$ in CSR format.
-Again, as $B$ is stored in row-wise it is more efficient to traverse it similarly, and so Algorithm \ref{alg:Sp-Sp-matrix} 
+Again, as $B$ is stored in row-wise it is more efficient to traverse it similarly, and so the algorithm
 uses the linear combination formulation presented in Section \ref{impl:traversal-order}.
 To find the $i$th row of $C$, for each non-negative-infinity value $A_{ik}$, scale the row $B_{k\cdot}$ by $A_{ik}$,
 and add it to the current row of $C$.
@@ -343,8 +343,7 @@ uses a dense accumulator and a `switch' array. The dense accumulator \verb|x| is
 current row. The switch array \verb|xb| is an array used to track which columns have been touched in the current row
 calculation.
 
-As shown in Algorithm \ref{alg:Sp-Sp-matrix}, the accumulation of $C$'s rows is
-done inside the innermost loop as follows:
+The accumulation of $C$'s rows is done inside the innermost loop as follows:
 
 \begin{itemize}
   \item If \verb|xb[k] == i|, we have already seen this column for the current row. Simply add the value to the 
@@ -356,6 +355,8 @@ done inside the innermost loop as follows:
 After the accumulation is complete, the algorithm copies the active columns and their associated values into $C$.
 The algorithm requires dynamic allocation for $C$'s structures, as the sparsity of $C$ is not known until the
 multiplication is carried out.
+
+The pseudocode for sparse matrix multiplication is given in the appendices (Algorithm \ref{alg:Sp-Sp-matrix}).
 
 \FloatBarrier
 \section{Setting up the matrix approach} \label{impl:matrix-approach}
@@ -404,7 +405,7 @@ This allows for multiplications to be batched, which will be useful when delegat
 This section describes several data-driven optimisations for reducing the work required to reduce the matrix expression,
 by exploiting patterns in the data, which were explored in Section \ref{prep:datasets}.
 
-\subsection{Run-length-encoding}
+\subsection{Run-length encoding}
 
 Fast exponentiation is a method that allows fast computation of large positive integer powers of a square matrix.
 It is based on the recursive equation:
@@ -612,7 +613,7 @@ iterations. The loop body is reduced to a single matrix, cached for future ident
 all iterations of the loop. The pointer \verb|i| then advances past the collapsed loop and the history buffer is cleared,
 which prevent the processing of overlapping PM-repeats and hierarchical nesting.
 
-The helper functions \verb|verifyMatch| and \verb|countIterations| are also defined in Algorithm \ref{alg:fast-loop-helper}.
+The helper functions \verb|verifyMatch| and \verb|countIterations| are defined in the appendices (Algorithm \ref{alg:fast-loop-helper}).
 
 \FloatBarrier
 \subsection{Final single-threaded pipeline}
@@ -686,7 +687,7 @@ evaluation order. We add a \verb|generatingJob| to the Matrix datatype that poin
 
 \begin{figure}[htbp]
   \centering
-  \begin{minipage}{0.4\textwidth} % Adjust width to fit your code
+  \begin{minipage}{0.5\textwidth} % Adjust width to fit your code
     \begin{lstlisting}[numbers=none, frame=none, language=C++]
 struct MatrixJob {
   Matrix* A;
@@ -701,8 +702,7 @@ struct MatrixJob {
   \label{fig:mat-job-struct}
 \end{figure}
 
-Algorithm \ref{alg:queue-mults} describes the queueing of multiplication jobs.
-Upon queueing, a corresponding job is instantiated and linked to the result matrix. The state of the multiplication 
+When queueing a multiplication, a corresponding job is instantiated and linked to the result matrix. The state of the multiplication 
 operands is then evaluated. If an operand's generating job is still accessible, the system attempts to register the new 
 job by insertion into the lock-free list of dependents on the generating job. If that insertion fails (when 
 a tombstone is encountered at the head of the list), the system safely deduces that the dependency is resolved.
@@ -714,6 +714,9 @@ dependents to safely indicate to other threads that the job has been completed.
 Because dependent jobs rely on a compare-and-swap (CAS) operation to insert at the head, the atomic insertion of the 
 tombstone forms a linearization point. The tombstone closes the list, ensuring that no new jobs are added as dependents.
 The final list of dependents is then processed, and the finalised job unlinked from the result matrix and discarded.
+
+Pseudocode for queueing, evaluation, and list operations is given in the appendices
+(Algorithms \ref{alg:queue-mults}, \ref{alg:async-mults} and \ref{alg:lock-free-list}).
 
 \FloatBarrier
 \subsection{Work-sharing}
@@ -821,22 +824,21 @@ can be held in local memory, allowing more independent work-groups to be `in-fli
 
 \subsection{GPU Kernel}
 
-Algorithm \ref{alg:gpu-kernel} shows the OpenCL code for the GPU kernel. Notable sections of 
-the kernel include:
-\begin{description}
-  \item[L7-8] Initialisation of the local memory tile for the work-group.
-  \item[L10-14:] Getting the appropriate indices for the work-group and work-item. The NDRange is 3-dimensional, with 
-    the first two dimentions (\verb|bx| and \verb|by|) denoting the index of the tile in the output matrix, and the 
-    third dimension (\verb|batch_idx|) giving the specific matrix in the batch. The local indices (\verb|tx| and \verb|ty|)
-    identify the cell on which the work-item performs its operations.
-  \item[L24-34:] Loading the cells of the tile from global memory into the local memory. Note that if a work-item is 
+The GPU kernel program follows the following steps:
+\begin{enumerate}
+  \item Initialise the local memory tile for the work-group.
+  \item Get the appropriate indices for the work-group and work-item from the 3-dimensional NDRange (representing 
+    the index of the matrix and the index of the tile and cell in the matrix).
+  \item Load the cells of the tile from global memory into local memory. Note that if a work-item is 
     outside the matrix size, it pads the matrix with $-\infty$.
-  \item[L36:] Since all work-items in a work group execute synchronously, we place a memory barrier to ensure that all 
+  \item Since all work-items in a work group execute synchronously, we place a memory barrier to ensure that all 
     work-items have loaded their cell before performing computation.
-  \item [L38-48:] Computing the dot product of the relevant column and row in the tile, using the max-plus algebra logic.
-  \item [L49:] Again, we place a memory barrier to ensure all work-items have completed their computation before writing 
-    back the result to global memory on line 53.
-\end{description}
+  \item Compute the dot product of the relevant column and row in the tile, using the max-plus algebra logic.
+  \item Finally place another memory barrier to ensure all work-items have completed their computation before writing 
+    back the result to global memory.
+\end{enumerate}
+
+The OpenCL kernel code is given in the appendices (Algorithm \ref{alg:gpu-kernel}).
 
 \subsection{Host to device dispatch}
 
@@ -859,7 +861,7 @@ The synchronous dispatcher thread operates as follows:
 \end{enumerate}
 
 The dependency aggregator thread then pops completed jobs off the queue, and resolves dependents, using the dependency 
-management logic from Algorithm \ref{alg:async-mults}.
+management logic from \ref{impl:split-compute}.
 
 While this synchronous model is simple and safe, as multiplications are managed synchronously, it introduces an "idle hardware" 
 problem. While the CPU is processing a batch of matrices, the GPU starves for work. Conversely, when the GPU is computing, 

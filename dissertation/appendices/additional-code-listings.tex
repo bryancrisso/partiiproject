@@ -85,42 +85,34 @@ function countIterations(int[] trace, int currentPos, int period) {
 
 \begin{algfloat}[htbp]
 \begin{lstlisting}[language=C++, caption={Queueing Logic}, label={alg:queue}]
-concurrentMap<Matrix*, MatrixJob> pendingJobs;
 concurrentQueue<MatrixJob> readyJobs;
 
 /* Queueing up a new multiplication */
 function enqueueMultiplication(MatrixJob newJob) {
   newJob.unresolvedDeps = 2;
-
-  // Safely insert C into the map
-  with WriteLock(pendingJobs[newJob.C]) {
-    pendingJobs[newJob.C] = newJob;
-  }
+  newJob.C.generatingJob = newJob;
 
   checkDependency(A,C);
   checkDependency(B,C);
 
-  // Enqueue if dependencies are resolved.
-  with ReadLock(pendingJobs[newJob.C]) {
-    if (pendingJobs[newJob.C].unresolvedDeps == 0) {
-      readyJobs.push(pendingJobs[newJob.C]);
-    }
+  if (newJob.unresolvedDeps == 0) {
+    readyJobs.push(newJob);
   }
 }
 \end{lstlisting}
 
 \begin{lstlisting}[language=C++, caption={Dependency Processing}, label={alg:deps1}]
+// FAS: Atomic fetch and subtract
+
 function checkDependency(Matrix* dependency, Matrix* dependent) {
-  with WriteLock(pendingJobs[dependency]) {
-    if (dependency in pendingJobs) {
-      pendingJobs[dependency].dependents.append(dependent);
-    } else {
-      // Dependency is complete; update dependent
-      with WriteLock(pendingJobs[dependent]) {
-        pendingJobs[dependent].unresolvedDeps--;
-      }
-    }
+  MatrixJob job = dependency.generatingJob;
+
+  if (job != nullptr
+   && job.dependents.insert(dependent.generatingJob)) {
+    return;
   }
+
+  FAS(newJob.unresolvedDeps, 1);
 }
 \end{lstlisting}
 \caption{Matrix queueing and dependency management logic.}
@@ -129,41 +121,54 @@ function checkDependency(Matrix* dependency, Matrix* dependent) {
 
 \begin{algfloat}[htbp]
     \centering
-    \begin{lstlisting}[language=C++, caption={Execution Logic}, label={alg:exec}]
-concurrentMap<Matrix*, MatrixJob> pendingJobs;
+    \begin{lstlisting}[language=C++]
 concurrentQueue<MatrixJob> readyJobs;
 
 void executeMultiplication(MatrixJob job) {
-    *(job.C) = *(job.A) * *(job.B);
-    processDependents(job.C);
-    with WriteLock(pendingJobs[job.C]) {
-        pendingJobs.erase(job.C);
-    }
-}
-    \end{lstlisting}
+  *(job.C) = *(job.A) * *(job.B);
 
-    \vspace{1em} % Adds a small gap between the two listings
+  Node<T> head = job.dependents.close();
 
-    \begin{lstlisting}[language=C++, caption={Dependency Processing}, label={alg:deps2}]
-void processDependents(Matrix* dependency) {
-    Matrix*[] deps;
-    with ReadLock(pendingJobs[dependency]) {
-        deps = pendingJobs[dependency].dependents;
-    }
-    for (Matrix* dep : deps) {
-        with WriteLock(pendingJobs[dep]) {
-            if (pendingJobs.contains(dep)) {
-                pendingJobs[dep].unresolvedDeps--;
-                if (pendingJobs[dep].unresolvedDeps == 0) {
-                    readyJobs.push(pendingJobs[dep]);
-                }
-            }
-        }
-    }
+  /* traverses the dependents list,
+     decrementing unresolvedDeps and queueing a job if ready. */
+  notifyAndQueueDependents(head);
+
+  job.C.generatingJob = null;
 }
     \end{lstlisting}
     \caption{Asynchronous matrix multiplication and dependency management logic.}
     \label{alg:async-mults}
+\end{algfloat}
+
+\begin{algfloat}[htbp]
+    \centering
+    \begin{lstlisting}[language=C++]
+// CAS: Atomic compare and swap
+
+bool insert(T item) {
+  Node<T> new = Node<T>(item);
+
+  while (true) {
+    Node<T>* currHead = head;
+    if (currHead == tombstone) {
+      return false;
+    }
+
+    new.next = currHead;
+    if (CAS(currHead, new)) {
+      return true;
+    }
+  }
+}
+
+Node<T> close() {
+  Node<T> tmp = head;
+  CAS(head, tombstone);
+  return tmp;
+}
+    \end{lstlisting}
+    \caption{Lock-free list operations.}
+    \label{alg:lock-free-list}
 \end{algfloat}
 
 \begin{algfloat}[htbp]
