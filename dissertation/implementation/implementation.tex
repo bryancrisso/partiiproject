@@ -404,7 +404,7 @@ This allows for multiplications to be batched, which will be useful when delegat
 This section describes several data-driven optimisations for reducing the work required to reduce the matrix expression,
 by exploiting patterns in the data, which were explored in Section \ref{prep:datasets}.
 
-\subsection{Fast exponentiation}
+\subsection{Run-length-encoding}
 
 Fast exponentiation is a method that allows fast computation of large positive integer powers of a square matrix.
 It is based on the recursive equation:
@@ -417,7 +417,8 @@ A^{n} = \begin{cases}
 \end{cases}
 $$
 
-This reduces the number of matrix multiplications required to evaluate $A^n$ from $O(n)$ to $O(\log n)$.
+This reduces the number of matrix multiplications required to evaluate $A^n$ from $O(n)$ to $O(\log n)$. Fast exponentiation
+is used in a run-length-encoding pass that iterates over the matrix expression and collapses all repeated symbols.
 
 \subsection{Pair encoding} \label{impl:pair-encoding}
 
@@ -641,10 +642,11 @@ for optimisation of the original problem via parallelisation in Section \ref{int
 and so this section describes approaches to parallelising the reduction pipeline.
 
 Concurrent data structures are designed for controlling access and modification by multiple threads to shared memory.
-This project utilises data structures from Intel's oneAPI Threading Building Blocks (TBB) library.
-Specifically, we employ \verb|concurrent_hash_map| for linearizable bucket-level reader-writer locks when tracking 
-pending multiplications in \ref{impl:split-compute}, and \verb|concurrent_bounded_queue| 
-is used as a producer-consumer queue, with the ability to safely block consumers when empty.
+This project utilises \verb|concurrent_bounded_queue| from Intel's oneAPI Threading Building Blocks (TBB) library
+as a producer-consumer queue, which safely blocks consumers when empty.
+We also make use of a custom lock-free linked list that uses compare and swap (CAS) operations to insert a new node.
+Insertion is restricted to the head, and we can insert a tombstone sentinel value that causes insertion operations 
+to fail. Pseudocode is given in %TODO:
 
 \subsection{Pipelined parallelism} \label{impl:split-compute}
 
@@ -680,7 +682,7 @@ until both its children have been computed.
 
 We can encapsulate a multiplication operation and all relevant dependencies with the data structure defined in 
 Figure \ref{fig:mat-job-struct}. All the jobs generated during the analysis will implicitly define the 
-evaluation order.
+evaluation order. We add a \verb|generatingJob| to the Matrix datatype that points to the job that generates its result.
 
 \begin{figure}[htbp]
   \centering
@@ -690,8 +692,8 @@ struct MatrixJob {
   Matrix* A;
   Matrix* B;
   Matrix* C;
-  int unresolvedDeps;
-  Matrix*[] dependents;
+  atomic int unresolvedDeps;
+  LockFreeList<Matrix*> dependents;
 };
     \end{lstlisting}
   \end{minipage}
@@ -700,18 +702,18 @@ struct MatrixJob {
 \end{figure}
 
 Algorithm \ref{alg:queue-mults} describes the queueing of multiplication jobs.
-Queued jobs are added to a \verb|concurrent_hash_map| mapping a matrix pointer to a job, allowing for job lookup and 
-serialising operations on jobs. The operands' jobs are then inspected, and if both are complete, we schedule the job
-for execution. On the other hand, if either of the operands are still pending, we add the new job to a list of
-dependents on that operand. 
+Upon queueing, a corresponding job is instantiated and linked to the result matrix. The state of the multiplication 
+operands is then evaluated. If an operand's generating job is still accessible, the system attempts to register the new 
+job by insertion into the lock-free list of dependents on the generating job. If that insertion fails (when 
+a tombstone is encountered at the head of the list), the system safely deduces that the dependency is resolved.
+If both operands have been resolved, the new job is scheduled for execution.
 
-Once both of its dependencies are resolved, a job is pushed to the ready queue, waiting to be executed.
-Upon execution of a job (as shown in Algorithm \ref{alg:async-mults}), we inspect
-the job's dependents. If both operands of a dependent have been satisfied, it is scheduled for execution.
-
-Jobs are acquired with read-locks for inspection and write-locks for modification, eliminating data races between 
-threads queueing new multiplications and threads evaluating jobs and resolving their dependencies. The use of fine-grained 
-bucket-level locking aims to reduce contention compared to a global mutex.
+Scheduled jobs are evaluated by separate threads. After completion of the multiplication, pending dependents
+must be notified of a dependency resolution. First, a tombstone is atomically inserted at the head of the list of 
+dependents to safely indicate to other threads that the job has been completed.
+Because dependent jobs rely on a compare-and-swap (CAS) operation to insert at the head, the atomic insertion of the 
+tombstone forms a linearization point. The tombstone closes the list, ensuring that no new jobs are added as dependents.
+The final list of dependents is then processed, and the finalised job unlinked from the result matrix and discarded.
 
 \FloatBarrier
 \subsection{Work-sharing}
@@ -721,26 +723,27 @@ our workload into many identical subtasks, and using many threads to process the
 when compared to a single thread.
 
 A thread pool is a collection of pre-initialised `worker' threads that stand ready to perform tasks. Instead of creating 
-a new thread every time a task is to be completed, a program will submit the task to a queue. An idle thread from the 
-pool then picks up the task, executes it, and instead of dying, returns to the pool to wait for the next task. This 
-avoids the overhead associated with creating and destroying threads, improves response times to incoming tasks, and 
-allows us to easily limit the number of threads spawned.
+a new thread every time a task is to be completed, a program will submit the task to a queue. In our case, we use the 
+\verb|concurrent_bounded_queue|. An idle thread from the pool then picks up the task, executes it, and instead of dying,
+returns to the pool to wait for the next task. This avoids the overhead associated with creating and destroying threads,
+improves response times to incoming tasks, and allows us to easily limit the number of threads spawned.
 
 The next two sections present two applications of work-sharing to the analysis tool, both making use of a generic
 thread-pool implementation. A thread pool is assigned a `kernel', which is a function that each thread applies to a
-task from the queue.
+task dequeued from the queue.
 
 \subsubsection{Multiplication scaling}
 
-The work on pipelined matrix multiplications described in Section \ref{impl:split-compute}
+The evaluation of matrix multiplications as described in Section \ref{impl:split-compute}
 can be easily parallelised using a thread pool. Once a multiplication job is ready to be executed it can be scheduled by 
-pushing it to the thread pool's task queue. By choosing Algorithm \ref{alg:async-mults}
-as the pool's kernel, multiple threads asynchronously process the evaluation order generated by the simplifier pipeline 
-stage.
+pushing it to the thread pool's task queue. Multiple threads are able asynchronously process the evaluation order
+generated by the simplifier pipeline stage.
 
-Increasing the thread count can lead to contention, as each thread has to access the shared \verb|pendingJobs| 
-map when processing dependencies. The map's bucket-level reader-writer locks might impede progress when two threads 
-try to exclusively access the same bucket. The impact of this is evaluated in Section \ref{eval:concurrency}.
+Increasing the thread count can lead to contention, as threads may try and insert jobs into the same lock-free list 
+simultaneously. This causes the CAS operation to fail for all but one thread, forcing other threads to spin and try 
+again repeatedly. Additionally, heavy access to atomic variables forces CPU caches to invalidate and synchronise across 
+cores to ensure coherence. This traffic impedes linear scaling at high thread counts.
+The impact of this is evaluated in Section \ref{eval:concurrency}.
 
 \subsubsection{Encoding scaling} \label{impl:enc-scaling}
 
@@ -872,6 +875,12 @@ This presents two clear targets for future optimisation:
 
 \section{Repository overview}
 
+Figure \ref{fig:overview}.
+gives a high-level repository overview
+Small scripts written for testing, benchmark orchestration and graph plotting are omitted as they do not significantly 
+contribute to the project.
+
+\begin{figure}
 \begin{lstlisting}[frame=none,numbers=none]
 .
 |- include/
@@ -893,4 +902,6 @@ This presents two clear targets for future optimisation:
 |  |- *_main.cpp              | Various main programs
 |-- CMakeLists.txt
 \end{lstlisting}
-
+\caption{Overview of the project repository and directory structure.}
+\label{fig:overview}
+\end{figure}

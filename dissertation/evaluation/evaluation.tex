@@ -102,7 +102,7 @@ matrices, where contiguous values are more likely to appear and so are optimised
 We can see that tiled multiplication introduces overhead and does not offer any benefit over our other dense matrix 
 implementation.
 
-The sparse matrix implementation offers better performance for sparsity $>93.75\%$, but rapidly deteriorates for denser matrices,
+The sparse matrix implementation offers better performance for sparsity $>93.75\%$ but rapidly deteriorates for denser matrices,
 and is close to the basic implementation for non-sparse matrices. Considering the distribution of sparsity in our datasets,
 shown in \ref{fig:matrix-sparsity}
 and Appendix \ref{apdx:nni-histograms}, sparse matrix multiplications 
