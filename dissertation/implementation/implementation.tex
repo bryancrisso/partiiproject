@@ -398,13 +398,30 @@ approach. At each pass, adjacent matrices are multiplied together and this is re
 This allows for multiplications to be batched, which will be useful when delegating computation
 (see Section \ref{impl:split-compute}).
 
+\subsection{Final single-threaded pipeline}
+
+\begin{figure}[H] 
+\centering 
+
+\input{diagrams/single-pipeline.tex}
+
+\caption{Final single-threaded pipeline.}
+\label{fig:single-threaded-pipeline}
+\end{figure}
+
+Figure \ref{fig:single-threaded-pipeline} provides an overview for the 
+single threaded pipeline for efficiently reducing large matrix expressions.
+Block trace processing is discussed in Section \ref{impl:blocks},
+run-length encoding in Section \ref{impl:rle}, fast loop finding in Section \ref{impl:loop-finder},
+and pair encoding in Section \ref{impl:pair-encoding}.
+
 \FloatBarrier
 \section{Fast expression reduction} \label{impl:fast-expr}
 
 This section describes several data-driven optimisations for reducing the work required to reduce the matrix expression,
 by exploiting patterns in the data, which were explored in Section \ref{prep:datasets}.
 
-\subsection{Run-length encoding}
+\subsection{Run-length encoding} \label{impl:rle}
 
 Fast exponentiation is a method that allows fast computation of large positive integer powers of a square matrix.
 It is based on the recursive equation:
@@ -490,7 +507,7 @@ By contrast, replacing one pair per iteration requires $6+\log_2(65536) = 22$ mu
 This is because the reduction happens within the boundaries of the loop body, and reduces it to one matrix, 
 allowing our fast exponentiation algorithm to work.
 
-\subsection{Block preprocessing}
+\subsection{Block preprocessing} \label{impl:blocks}
 
 Initially, the expression held one matrix per instruction in the trace, even though the original program
 trace was provided as a series of basic blocks. We can instead use the information about the program's basic blocks to
@@ -615,23 +632,6 @@ which prevent the processing of overlapping PM-repeats and hierarchical nesting.
 The helper functions \verb|verifyMatch| and \verb|countIterations| are defined in the appendices (Algorithm \ref{alg:fast-loop-helper}).
 
 \FloatBarrier
-\subsection{Final single-threaded pipeline}
-
-% Load trace
-% process into blocks
-% runLengthEncode to quickly get rid of any simple repeated patterns
-% Find and collapse simple loops
-% Encoding: do { pair Encode; run length encode; } while (pairEncoder has made changes)
-% Tree reduction
-
-\begin{figure}[H] % [htbp] helps LaTeX decide where to place the image
-\centering % This command centers the contents of the figure
-
-\input{diagrams/single-pipeline.tex}
-
-\caption{Final single-threaded pipeline}
-\label{fig:single-threaded-pipeline}
-\end{figure}
 
 \section{Parallelisation} \label{impl:parallelisation}
 
@@ -647,6 +647,18 @@ as a producer-consumer queue, which safely blocks consumers when empty.
 We also make use of a custom lock-free linked list that uses compare and swap (CAS) operations to insert a new node.
 Insertion is restricted to the head, and we can insert a tombstone sentinel value that causes insertion operations 
 to fail. Pseudocode is given in the appendix (Algorithm \ref{alg:lock-free-list}).
+
+\begin{figure}[H] 
+\centering 
+\input{diagrams/parallel-pipeline}
+\caption{Final parallel pipeline.}
+\label{fig:multi-threaded-pipeline}
+\end{figure}
+\FloatBarrier
+
+Figure \ref{fig:multi-threaded-pipeline} lays out the structure of the parallel 
+program. Splitting the evaluation order and multiplications is covered in Section \ref{impl:split-compute},
+and task-parallelism for encoding and multiplication is described in Section \ref{impl:work-sharing}.
 
 \subsection{Pipelined parallelism} \label{impl:split-compute}
 
@@ -716,7 +728,7 @@ Pseudocode for queueing and evaluation is given in the appendices
 (Algorithms \ref{alg:queue-mults} and \ref{alg:async-mults} ).
 
 \FloatBarrier
-\subsection{Work-sharing}
+\subsection{Work-sharing} \label{impl:work-sharing}
 
 Work sharing distributes large computational tasks across several processor cores maximising efficiency. By chunking
 our workload into many identical subtasks, and using many threads to process the subtasks, we can increase throughput
@@ -745,7 +757,7 @@ again repeatedly. Additionally, heavy access to atomic variables forces CPU cach
 cores to ensure coherence. This traffic impedes linear scaling at high thread counts.
 The impact of this is evaluated in Section \ref{eval:concurrency}.
 
-\subsubsection{Encoding scaling} \label{impl:enc-scaling}
+\subsubsection{Encoding scaling} 
 
 Additionally, the work done by the encoding and final reduction stages
 (Sections \ref{impl:pair-encoding} and \ref{impl:matrix-approach})
@@ -761,15 +773,6 @@ within a single chunk may not reflect the frequency distribution of the whole ex
 worse evaluation order within each chunk, requiring more multiplications to reduce the expression as a whole, but we
 offset this extra work by utilising more compute when multiplying. 
 
-\subsubsection{Final parallel pipeline}
-
-\begin{figure}[H] 
-\centering 
-\input{diagrams/parallel-pipeline}
-\caption{Final parallel pipeline}
-\label{fig:multi-threaded-pipeline}
-\end{figure}
-\FloatBarrier
 
 \section{Accelerator-level parallelism} \label{impl:gpu}
 
