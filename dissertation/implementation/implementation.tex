@@ -130,7 +130,7 @@ baseline. This satisfies the success criteria for the NB project requirement fro
 Because Algorithm \ref{alg:naive-baseline} only stores the longest chain ending at each register and discards all others, the \verb|curDeps|
 array cannot memoise intermediate results for small instruction windows. Instead, all the longest dependency chains
 starting at some register and ending at another have to be encoded in the result, which pushes us towards the matrix
-representation. Propagation of dependencies for all the chains is simply the multiplication of the matrices.
+representation. Propagation of dependencies for all chains is simply the multiplication of the matrices.
 
 \section{Matrix Multiplications} \label{impl:matrices}
 
