@@ -43,11 +43,11 @@ For any $n\times n$ matrices $X = (x_{ij})$ and $Y = (y_{ij})$, the entries of $
 are calculated as \cite{krivulin2012maxplusalgebraapproachmodelling}
 
 $$
-u_{ij} = x_{ij} \oplus y_{ij}, \text{ and } v_{ij} = \displaystyle\sum_{k=1}^{n} \! {}_{\oplus} x_{ik} \odot y_{kj}
+u_{ij} = x_{ij} \oplus y_{ij}, \text{ and } v_{ij} = \bigoplus_{k=1}^{n} x_{ik} \odot y_{kj}
 $$
 
 The matrix operations $\oplus$ and $\odot$ are associative owing to the commutativity and associativity of the underlying 
-addition operator, and that the multiplication operator distributes over addition.
+addition operator, and the distributivity of the multiplication operator over addition.
 
 \end{definition}
 
@@ -60,10 +60,8 @@ and so it is not applicable to our particular use-case.
 
 % Show how this applies to the longest-path problem
 
-As established previously, finding the length of the critical path in a program results in finding the longest path
-in its DDG. It is noted that the max-plus version of the tropical semiring is applicable to finding the longest path
-in a graph \cite{krivulin2012maxplusalgebraapproachmodelling}.
-
+As established in Section \ref{intro:background}, finding the length of the critical path in a program requires computing the longest path
+in its DDG. 
 One algorithm \cite{Chadderz} to find the longest path between nodes $A$ and $B$ in a graph is to recursively take the 
 maximum of all path lengths from all neighbours of $A$ to $B$, plus the cost of the edge from $A$ to the chosen
 neighbour. We can see that this amounts to a Bellman recursion equation \cite{Bellman:DynamicProgramming}
@@ -77,11 +75,11 @@ v(A,B) =
 \end{cases}
 $$
 
-We can observe that if we have an adjacency matrix (where the cells in that matrix represent the cost of the edge
+We observe that if we have an adjacency matrix (where the cells in that matrix represent the cost of the edge
 between the pair of nodes in that row/column, and $-\infty$ if there is no edge), performing tropical semiring 
 matrix multiplication of this matrix with itself corresponds to one step of our longest-path algorithm.
 
-Formally we consider an adjacency matrix $X^{2} = X \odot X$, and denote its entries by $x_{ij}^{(2)}$. We have that $x_{ij}^{(2)} = p$
+Formally, we consider an adjacency matrix $X^{2} = X \odot X$, and denote its entries by $x_{ij}^{(2)}$. We have that $x_{ij}^{(2)} = p$
 if and only if there exists at least one path of length $p$ from node $i$ to node $j$ in the corresponding graph,
 consisting of at most two edges, and that path is the longest such path. This extends to any integer exponent $q$
 \cite{krivulin2012maxplusalgebraapproachmodelling}.
@@ -97,7 +95,7 @@ and that path is the longest such path.
   See Appendix \ref{apdx:proofs} for the full proof.
 \end{proof}
 
-So, an adjacency matrix raised to the power infinity will converge to the longest distance matrix for that whole graph.
+Therefore an adjacency matrix raised to the power infinity will converge to the longest distance matrix for that whole graph.
 
 For example, consider the graph:
 \begin{center}
@@ -149,7 +147,7 @@ We introduce a new expanded graph structure, which has one node per register per
 
 Let us first consider the dependencies for instructions only affecting registers.
 Since each instruction has a fixed set of registers which it accesses, it has a fixed dependency structure, and so each 
-instruction in the program trace will have a fixed subgraph in the expanded DDG encoding its dependency information.
+instruction in the program trace will have a fixed subgraph in the expanded DDG encoding the program's dependency information.
 
 For example, we could encode the dependencies for the instruction \verb|R0 = ADD R1, R2| as the subgraph:
 
@@ -177,19 +175,16 @@ characteristics of the subgraph are as follows:
 The full DDG will consist of several of these subgraphs, horizontally glued together, with one new set of dependency edges 
 for each additional instruction.
 
-The true critical path often involves memory operations, as a value may be copied to memory from a register, then 
-potentially millions of instructions later that value is read into a register and used, contributing to a data dependency,
-yet we have not accounted for this here. While Chadwick \cite{Chadderz} has suggested approaches to track through-memory
-dependencies, this project will not do so, as they require dealing with much larger matrices or significantly complicating 
+The true critical path often involves memory operations, as a value may be copied to memory from a register. Then,
+potentially millions of instructions later, that value is read into a register and used, contributing to a data dependency.
+We have not accounted for this here. While Chadwick \cite{Chadderz} has suggested approaches to track through-memory
+dependencies, this project does not do so, as they require dealing with much larger matrices or significantly complicating 
 the structure of the datasets, which fell outside of the project's scope.
-
-Because realistic program traces often contain trillions of instructions, constructing a full adjacency matrix is 
-computationally unfeasible.
 
 \subsection{Alternative graph representation} \label{prep:alternative-matrix-struct}
 
-Section \ref{prep:register-only-chains} stated that constructing a full adjacency 
-matrix is computationally unfeasible for realistic program traces, as they contain trillions of dynamic instructions. 
+Constructing a full adjacency matrix for the DDG structure in \ref{prep:register-only-chains}
+is computationally unfeasible for realistic program traces, as they contain trillions of dynamic instructions. 
 
 Chadwick \cite{Chadderz} proposes an alternative representation to the full adjacency matrix.
 There is a particular structure in the DDGs we construct: they are more long than wide.
@@ -262,10 +257,10 @@ In the tropical semiring, computing the matrix product
   -\infty & -\infty & -\infty & 0 
 \end{pmatrix}
 \]
-yields a matrix representing the longest path from the $m$th node in the first column the $n$th node in the final 
+yields a matrix representing the longest path from the $m$th node in the first column to the $n$th node in the final 
 column of the graph. Because we have ensured every path in the graph connects to the first and last column, the largest 
 individual value in this matrix is the length of the longest path in the graph, namely the path of length 4 connecting 
-from $a$ in the first column, to $m_4$ in the final column, via $d$ and $m_3$.
+$a$ in the first column to $m_4$ in the final column, via $d$ and $m_3$.
 
 The correctness of the column-wise approach for calculating longest paths in graphs is a corollary that follows directly 
 from Theorem \ref{thm:mat-exp-longest-paths}.
@@ -289,14 +284,13 @@ frequent reuse of matrices in the equation, which further reduces the actual mem
 
 This defines the final shape of the data that we will be working on as a mathematical expression consisting of a
 series of matrix multiplications. The corollary theoretically satisfies the success criteria for the MPF requirement 
-in Table \ref{tbl:requirements-analysis}, and
-tool outputs in Appendix \ref{apdx:outputs} verify this operationally.
+in Table \ref{tbl:requirements-analysis}.
 
 \section{Datasets} \label{prep:datasets}
 
 I selected execution traces from several GNU coreutils programs (v8.32) \cite{coreutils} to benchmark the analysis tool,
-all executed on an AArch64 architecture. The execution traces are given as a series of branches,
-which can be interpreted as the series of basic blocks that are executed at runtime. A basic block is a series of instructions
+all executed on an AArch64 architecture. The execution traces are given as a list of branches,
+which can be interpreted as a series of basic blocks that are executed at runtime. A basic block is a chain of instructions
 executed sequentially without a branch.
 
 The chosen program executions included \verb|cksum| (calculating the CRC of 1MiB and 32MiB files of random bytes),
@@ -307,7 +301,8 @@ collected by Alexandra Chadwick (\textit{awc32}) using custom tooling.
 
 Most standard benchmark suites consist of huge execution traces, and smaller suites only contain trivially tiny traces.
 The chosen traces achieve a middle ground of being small enough for quick testing during iterative development, but 
-are also real, commonly used programs that are doing realistic work.
+are also real, commonly used programs that are doing realistic work. The traces represent a range of workloads, 
+from highly repetitive loop workloads in cksum and sha1sum, to more complex branching in factor and sort.
 
 \subsection{Data properties} \label{prep:data-properties}
 
@@ -357,11 +352,11 @@ with the same repeating substring, but separated/split by other symbols. We can 
 correspond to an invocation of the same loop, which executes for some varying number of iterations. Each invocation 
 of the loop is separated by other instructions, with their own varying dependency information.
 
-This pattern can be exploited in two ways:
+This type of pattern can be exploited in two ways:
 
 \begin{enumerate}
   \item Consecutive repetitions of matrices can be quickly reduced down into a single matrix using a fast exponentiation algorithm.
-  \item The matrices making up one iteration of the loop can be multiplied together to obtain a singular matrix representing 
+  \item The matrices representing instructions in one iteration of the loop can be multiplied together to obtain a singular matrix representing 
     the dependency information for that single iteration. All other iterations of that loop body can then be replaced with 
     the singular result matrix without any extra computation.
 \end{enumerate}
@@ -374,8 +369,8 @@ project requirements, and technical justification for the chosen tools.
 \subsection{Software engineering}
 
 I adopted the iterative spiral methodology for this project. Given the experimental nature of performance optimisation, 
-this methodology facilitated continuous cycles of planning, implementation, and evaluation, 
-where performance bottlenecks were identified to inform the next cycle.
+this methodology facilitated continuous cycles of planning, implementation, and informal profiling to identify performance 
+bottlenecks, informing the next iteration cycle.
 
 To maintain codebase integrity during high-frequency iterations, code was regularly committed and pushed to GitHub,
 using feature branches to implement large changes. Commits from branches were squashed upon merge to provide a clean, 
@@ -396,7 +391,7 @@ and categorised by their priority, according to the MoSCoW method guidelines \ci
     \toprule
     \textbf{ID} & \textbf{Category} & \textbf{Requirement} & \textbf{Success Criteria} \\
     \midrule
-    NB  & \textit{Must-have} & Naive Baseline Implementation & A valid reference implementation to provide a performance baseline for speedup calculations. \\
+    NB  & \textit{Must-have} & Naive Baseline Implementation & A valid reference implementation to provide a baseline for performance comparisons. \\
     \addlinespace % Adds a tiny bit of breathing room between wrapped rows
     MPF & \textit{Must-have}  & Matrix-Based Path Finding & Correctness verification: ensure the matrix approach yields identical results to the naive baseline. \\
     \addlinespace
@@ -406,7 +401,7 @@ and categorised by their priority, according to the MoSCoW method guidelines \ci
     \addlinespace
     GA  & \textit{Could-have}  & GPU Acceleration & Successful offloading of matrix multiplications to an accelerator, identifying the point at which throughput overtakes overhead. \\
     \addlinespace
-    MT  & \textit{Won't-have}  & Through-memory dependency tracking & Excluded from scope to focus on local hardware parallelisation.  \\
+    MT  & \textit{Won't-have}  & Through-memory dependency tracking & Excluded from scope to focus on local hardware optimisations.  \\
     \bottomrule
 \end{tabularx}
 \caption{MoSCoW analysis of project requirements and success criteria.}
@@ -417,7 +412,7 @@ and categorised by their priority, according to the MoSCoW method guidelines \ci
 
 The choice of tools was driven by the need for low-level hardware transparency, balanced with architectural flexibility.
 C++ was selected as the primary programming language as it allows for fine-grained memory control (which is important 
-for peformance-sensitive code by avoiding expensive garbage collection), and provides modern object-oriented paradigms
+for peformance-sensitive code for avoiding expensive garbage collection), and provides modern object-oriented paradigms
 enabling the use of design patterns to easily swap between strategies when testing and benchmarking.
 
 While CUDA provides a highly optimized environment for Nvidia hardware, OpenCL was chosen for its cross-platform portability.

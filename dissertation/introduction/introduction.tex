@@ -12,7 +12,7 @@ control or structural dependencies) between them. An instruction dependent on a 
 after the former has completed execution to ensure correct execution of the entire program.
 
 Modern superscalar processors exploit ILP to increase throughput and hide latency \cite{shen2013modern}. The absolute limit of 
-exploitable ILP is dependent on the structure of the executed program. A dynamic execution of a program will have a
+exploitable ILP depends on the structure of the executed program. A dynamic execution of a program will have a
 `critical path' of instructions, each data-dependent on the previous, that have to be executed sequentially.
 
 To understand these theoretical limits, studies are conducted to measure the maximum ILP available, through analysis 
@@ -90,13 +90,9 @@ the DDG becomes a problem of reducing a large expression of matrix multiplicatio
 Because matrix multiplication is associative, the expression can be evaluated in any order, and intermediate results 
 fully encode the dependency information of the instructions they range over. This enables a range of optimisations when 
 computing ILP limits, including thread-parallelisation of computations and memoisation of repetitive intermediate results.
+
 One additional benefit of the associativity of the matrix expression is that it trivialises instruction window scaling.
 Consider three windows of instructions: A, B, and C (which is comprised of windows A and B consecutively).
-
-% \begin{center}
-% \input{diagrams/blocks.tex}
-% \end{center}
-
 To compute ILP information for each window, the traditional approach must be executed 3 times, once for 
 each window. However, the matrix-based approach will only need to run twice, on A and B, and the dependency 
 information matrix for C can simply be obtained by multiplying the result matrices from A and B.
@@ -113,7 +109,7 @@ determine optimal expression evaluation orders. Finally, I introduce parallel op
 and accelerator-level parallelism to distribute the computational workload.
 
 I show experimentally in Section \ref{eval:holistic-pipeline}
-that a single-threaded pipeline equipped with the data-driven optimisations matches or beats the performance 
-of the naive baseline. Furthermore, by distributing expression reduction and matrix multiplication workloads over 
+that a single-threaded pipeline equipped with the data-driven optimisations beats the performance 
+of the naive baseline in most cases. Furthermore, by distributing expression reduction and matrix multiplication workloads over 
 multiple cores, I show that the parallel approach is at least twice as fast as the baseline,
 demonstrating the scalability of the matrix-based approach in analysing large execution traces.

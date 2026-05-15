@@ -29,7 +29,7 @@ Listed are shortcomings of the analysis tool that could be addressed in the futu
 
 \begin{itemize}
   \item The GPU pipeline was inefficient. The memory layout could be optimised alongside a new double-buffered dispatch 
-    architecture to reduce data management overhead. The CPU could also have been used for multiplications concurrently,
+    architecture to reduce data management overhead. The CPU could also perform multiplications concurrently,
     maximising throughput.
   \item I/O and parsing form a sequential bottleneck for the analysis tool when loading the initial expression. 
     An alternative binary-based format could be developed to speed up loading and reduce the bottleneck.

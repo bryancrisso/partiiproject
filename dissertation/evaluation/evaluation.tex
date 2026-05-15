@@ -2,7 +2,7 @@
 
 \section{Methodology}
 
-The analysis tools were benchmarked on the program execution traces described in \ref{prep:datasets}.
+The analysis tools were benchmarked on the program execution traces described in Section \ref{prep:datasets}.
 Benchmarks were executed on two devices, which we call Small and Big, with hardware details in Figure \ref{tbl:specs}.
 \begin{table}[ht]
   \centering
@@ -48,12 +48,12 @@ The benchmarks were executed on Small to provide fair comparison with the GPU ap
   \toprule
   \textbf{Dataset} & \textbf{NB} & \textbf{Single} & \textbf{Para.} & \textbf{GPU} \\
   \midrule
-  cksum   & 11.2 & 43.3 & 49.8 & 860 \\
-  cksum32 & 11.1 & 551 & 560 & 1276 \\
-  factor  & 11.1 & 1601 & 906 & 14034 \\
-  sha1sum & 11.4 & 46.0 & 55.7 & 930 \\
-  shuf    & 11.4 & 79.6 & 79.6 & 1052 \\
-  sort    & 11.8 & 182 & 219 & 1346 \\
+  cksum   & 11.2 & 43.3 & 49.8 & 582 \\
+  cksum32 & 11.1 & 551 & 560 & 1052 \\
+  factor  & 11.1 & 1601 & 906 & 11616 \\
+  sha1sum & 11.4 & 46.0 & 55.7 & 606 \\
+  shuf    & 11.4 & 79.6 & 79.6 & 623 \\
+  sort    & 11.8 & 182 & 203 & 714 \\
   \bottomrule
 \end{tabular}
 \caption{Memory usage breakdown for each approach (MB, maximum resident set size)}
@@ -61,14 +61,16 @@ The benchmarks were executed on Small to provide fair comparison with the GPU ap
 \end{table}
 
 Figure \ref{eval:fig:all-pipelines} shows that 
-across every single program trace, the fully parallel pipeline is 2 to 7 times faster than the naive baseline. 
+the single-threaded pipeline offers better performance than the naive baseline in almost all cases. The data-driven 
+optimisations successfully reduce work enough to make matrix multiplication a viable choice, except for sort, where the 
+complex program structure is hard to exploit.
+
+Across every single program trace, the fully parallel pipeline is 2 to 7 times faster than the naive baseline. 
 Parallelisation clearly accelerates reduction, but trace loading is unchanged; the sequential I/O involved visualises Amdahl's Law.
 Loading the trace dominates the program's lifecycle, implying diminishing returns from further parallelisation.
-Furthermore, the GPU approach is universally slower than both the single-threaded and parallel approaches. This is likely 
+Furthermore, the GPU approach is almost universally slower than both the single-threaded and parallel approaches. This is likely 
 due to the poor GPU throughput and throttling of the memory bandwidth, as dense matrix data is constantly 
-being transferred between the CPU and GPU. This adds increased contention for other threads performing encoding.
-
-%TODO: Talk about single-threaded being slower for sort - high entropy trace with more complex structure.
+being transferred between the CPU and GPU. This adds increased contention for other threads performing loading and encoding.
 
 Table \ref{tbl:memory-breakdown} provides an overview of 
 memory footprints. Matrix based approaches predictably use more memory, as
@@ -111,7 +113,7 @@ implementation.
 
 The sparse matrix implementation offers better performance for sparsity $>93.75\%$ but rapidly deteriorates for denser matrices,
 and is close to the basic implementation for non-sparse matrices. Considering the distribution of sparsity in our datasets,
-shown in \ref{fig:matrix-sparsity}
+shown in Section \ref{fig:matrix-sparsity}
 and Appendix \ref{apdx:nni-histograms}, sparse matrix multiplications 
 offer the best performance for CPU-based multiplications, and so are used in all following benchmarks.
 
@@ -130,16 +132,15 @@ and the optimality of the resulting evaluation tree.
 
 Figure \ref{eval:fig:encoder-perf}
 shows off the execution time of the encoder and tree-reduction stages of the pipeline for various parameters.
-
 We immediately observe that the execution time curves for fixed pair counts are highly erratic and dataset-dependent.
-For instance, the optimal $p$ for cksum32 is vastly different from the optimal $p$ for sort.
+For instance, the optimal $p$ for cksum32 is vastly different from the optimal $p$ for factor.
 Using a fixed $p$ is brittle because it does not scale with the size or 
 entropy of the execution trace. Replacing $2^5$ pairs in a large, high-entropy trace may do close to nothing (wasting 
-time on frequency analyses) whereas, replacing $2^5$ pairs in a small trace with lots of patterns may aggressively 
+time on frequency analyses), whereas replacing $2^5$ pairs in a small trace with lots of patterns may aggressively 
 combine matrices, destroying the compression ratio, therefore a "universal sweet spot" for $p$ does not exist.
 
 Compare this to the execution time curves for the variable parameter. They are much smoother and form a gentle U shape 
-across most datasets. The best execution time ranges between $r=0.5$ and $r=0.7$. Because this parameter scales with 
+across most datasets. The best execution time ranges between $r=0.6$ and $r=0.8$. Because this parameter scales with 
 the size and complexity of the expression, it balances the workload. 
 While the best performance is not as good as the fixed pair encoder, the dynamic threshold yields a more stable sweet 
 spot, regardless of the input program, as hypothesised in Section \ref{impl:variable-encoder}.
@@ -148,7 +149,7 @@ The reason for the high execution times for $p=1$ shown in Figure \ref{eval:fig:
 can be visualised further in Figure \ref{eval:fig:encoder-profile}.
 The $p=1$ reduction profile shows periods of minimal reduction, where the algorithm carefully replaces 
 the most frequent matrix pair. While this is theoretically optimal, each iteration requires an expensive frequency 
-analysis, which dominates the algorithm runtime. This contrasts heavily to reduction profiles of $p=256$ and $r=0.4$,
+analysis, which dominating the runtime. This contrasts heavily to the reduction profiles of $p=256$ and $r=0.4$,
 which plunge steeply. They achieve slightly worse compression ratios, but do so with one to two orders of magnitude fewer 
 frequency analyses.
 
@@ -238,11 +239,11 @@ quantifies the huge impact of block preprocessing on execution time. Across the 
 
 On the other hand, the fast loop finding stage delivers mixed results. Execution time is largely unchanged by including 
 fast loop finding for cksum, cksum32, and sha1sum. This is backed up by Table \ref{tbl:multiplication-breakdown-full},
-where the loop finder does very few multiplications, as most of the expression is already reduced by the RLE stage.
+where the loop finder does very few multiplications, as most of the expression is already reduced by the first RLE stage.
 Performance improves for the shuf and factor traces, but interestingly, the total number of multiplications done increases.
 The greedy nature of the loop finder led to a worse evaluation order, but performing more 
 multiplications is cheaper compared to the cost of the frequency analyses in the encoding stage.
-This trade-off does not translate to sort, however, as the performance is notably worse, and many more multiplications 
+This trade-off does not translate to sort, however, as the performance is worse, and many more multiplications 
 are made. This implies that the greedy approach has much worse efficiency for this trace and the complex 
 branch structure of the underlying merge sort algorithm is better suited to a pure pair encoding approach.
 
@@ -279,7 +280,7 @@ showing that each encoder thread generates enough multiplication jobs for severa
 Performance worsens slightly at the 8:64 thread mark. This is not due to multiplication performance, as active throughput steadily
 increases up to 8:64 and dependency management overhead remains at $<10\%$, as shown in Figure \ref{eval:fig:multi-thread-throughput}.
 However, we can see that encoder efficiency is impacted.
-The proportion of time the encoder threads are doing useful work falls steadily.
+The proportion of time the encoder threads are doing useful work falls steadily as thread counts increase.
 Encoder threads spend increasingly more time on the dependency resolution involved when queueing multiplication jobs, 
 and so the analysis and reduction of the matrix expression does not get any faster. This is most likely due to increased 
 cache contention, as the number of threads doing memory-heavy matrix multiplications has increased and shared 
@@ -292,7 +293,7 @@ caches are oversaturated.
   \label{eval:fig:multi-thread-throughput}
 \end{figure}
 
-Performance at the 16:128 thread configuration collapses due to the consequences of Non Uniform Memory Access (NUMA) penalties.
+Performance at the 16:128 thread configuration collapses due to the consequences of Non Uniform Memory Access (NUMA).
 While the Big machine supports up to 160 hardware threads, they are physically distributed across a dual-socket architecture.
 Scaling to more than 80 threads schedules them across both processors. Because the program is NUMA oblivious, threads
 on processor 0 constantly attempt to read and modify jobs and dependencies residing in the cache of processor 1 and vice-versa.
@@ -323,7 +324,7 @@ GPU benchmarks are executed on the Small machine to make use of the 3080Ti Mobil
 \end{table}
 
 Table \ref{tbl:gpu-breakdown} details a 
-4096-multiplication batch dispatched to the OpenCL kernel (Algorithm \ref{alg:gpu-kernel}).
+4096-multiplication batch dispatched to the OpenCL kernel (Section \ref{impl:gpu-kernel}).
 The total time of 41.7ms yields a throughput of $\sim$100,000 multiplications per second.
 Compared to CPU scaling (Figure \ref{eval:fig:multi-thread-throughput}),
 this mirrors the throughput of a single CPU thread, and is eclipsed by the full use of 12-15 threads. 
@@ -332,11 +333,11 @@ Data management and transfer overhead consumes $\sim$96\% of the execution time.
 As matrices are allocated dynamically on the heap (see Section \ref{impl:matrix-approach}),
 their non-contiguous addresses force the CPU to chase scattered pointers and individually copy each matrix's data
 during packing and unpacking.
-This is exacerbated by the use of a synchronous pipeline. Implementing a double-buffered approach, would allow the CPU 
+This is exacerbated by the use of a synchronous pipeline. Implementing a double-buffered approach would allow the CPU 
 to pack and transfer batch $B$ while the GPU computes the previously prepared batch $A$, effectively hiding the data management 
 overhead behind computation.
 
 The success criteria for the requirement GA in Table \ref{tbl:requirements-analysis}
-has been met, as we did successfully offload multiplications to the GPU, although throughput never overtook overhead.
+has been met, as we successfully offloaded multiplications to the GPU, although throughput never overtook overhead.
 \enlargethispage{2\baselineskip}
 

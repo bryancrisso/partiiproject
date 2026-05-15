@@ -27,7 +27,7 @@
   representing the longest path from $i$ to $j$ using at most $q$ edges.
   We show that the claim holds for $q+1$. By definition, $X^{q+1} = X^{q} \odot X$
   The entry $x_{ij}^{(q+1)}$ is calculated as:
-  $$x_{ij}^{(q+1)} = \sum_{k=1}^{n} \! {}_{\oplus} (x_{ik}^{(q)}\odot x_{kj})$$
+  $$x_{ij}^{(q+1)} = \bigoplus{k=1}^{n} (x_{ik}^{(q)}\odot x_{kj})$$
   Translating this to the original operators:
   $$
   x_{ij}^{(q+1)} = \max_{1 \leq k \leq n} (x_{ik}^{(q)} + x_{kj})
