@@ -226,7 +226,7 @@ Apart from the improved cache performance, there are three other optimisations.
   \item[Sparsity] This optimisation concerns line 7 of the algorithm. To make sense of it, we can consider an extension
     to the previous matrix multiplication definition:
     $$
-    v_{i \cdot} = \displaystyle\sum_{k=1}^{n} \! {}_{\oplus} x_{ik} \odot y_{k\cdot}
+    v_{i \cdot} = \bigoplus_{k=1}^{n} x_{ik} \odot y_{k\cdot}
     $$
     This demonstrates that the $i$th row of $V$ is a linear combination of the $k$ rows of $Y$.
     Crucially, if $x_{ik}=-\infty$, the corresponding row $Y_k$ is scaled to the additive identity, contributing 
