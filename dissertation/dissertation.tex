@@ -83,8 +83,6 @@
 
 \definecolor{codegray}{rgb}{0.5,0.5,0.5}
 
-%TODO: Add top and bottom lines for separation
-%TODO: Use \description lists instead of itemize
 \lstdefinestyle{codestyle}{
     commentstyle=\color{codegray},
     numberstyle=\tiny,
@@ -158,7 +156,7 @@
 
 \pagestyle{empty}
 
-\rightline{\LARGE \textbf{blind-grading-number}}
+\rightline{\LARGE \textbf{3450C}}
 %3450C
 
 \vspace*{60mm}
@@ -178,11 +176,14 @@ Computer Science Tripos -- Part II \\[5mm]
 \newpage
 \section*{Declaration}
 
-I, the candidate for Part II of the Computer Science Tripos with Blind Grading Number [insert BGN here], hereby declare that this report and the work described in it are my own work, unaided except as may be specified below, and that the report does not contain material that has already been used to any substantial extent for a comparable purpose. In preparation of this report, I adhered to the Department of Computer Science and Technology AI Policy. [The project required the approved use of [insert name of technology] and such use is acknowledged in the text at the relevant sections.] [I am content for my report to be made available to the students and staff of the University.]
-Date \today
+I, the candidate for Part II of the Computer Science Tripos with Blind Grading Number 3450C, hereby declare that this
+report and the work described in it are my own work, unaided except as may be specified below, and that the report does
+not contain material that has already been used to any substantial extent for a comparable purpose. In preparation of
+this report, I adhered to the Department of Computer Science and Technology AI Policy.
+I am content for my report to be made available to the students and staff of the University.
 
 \medskip
-\leftline{Date [date]}
+\leftline{Date: \today.}
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % Proforma, table of contents and list of figures
@@ -198,36 +199,45 @@ Date \today
 \begingroup
 \sloppy
 
-\textbf{Candidate number}: XXXXX \\
+\textbf{Candidate number}: 3450C \\
 \textbf{Project title}: Efficient instruction-level parallelism analysis using tropical semiring `matrix multiplication' \\
 \textbf{Examination}: Computer Science Tripos -- Part II, May 2026  \\
-\textbf{Word count}: XXXX \footnotemark[1]\\
-\textbf{Code line count}: \\
-\textbf{Project originator} (if this is the student please state `The candidate'): Alexandra Chadwick, \textit{awc32} \\
+\textbf{Word count}: 11612 \footnotemark[1]\\
+\textbf{Code line count}: 4534 \footnotemark[2]\\
+\textbf{Project originator}: Alexandra Chadwick, \textit{awc32} \\
 \textbf{Day-to-day supervisor}: Alexandra Chadwick, \textit{awc32}\\
 \textbf{Marking supervisor}: Robert Mullins, \textit{rdm34}\\
 %\textbf{(Whether approval from the Departmental Ethics Committee was requested, whether it was approved, and the Ethics Committee case number if applicable.)} \\
 
 
-\footnotetext[1]{This word count was computed
-by \texttt{detex diss.tex | tr -cd '0-9A-Za-z $\tt\backslash$n' | wc -w}
+\footnotetext[1]{computed
+using \texttt{textcount}
 }
 \stepcounter{footnote}
+\footnotetext[2]{computed
+using \texttt{cloc}
+}
 
 \endgroup
 
 \section*{Original aims of the project}
 
-Maximum 100 words.
-
+Classical techniques for calculating the upper bound of instruction level parallelism in limit studies involve 
+sequential algorithms that limit efficiency.
+This project explores a novel matrix-based technique for calculating the upper bound of instruction level parallelism
+in a program. The objective was to show that this approach offers better performance than traditional analysis
+techniques, at the cost of greater use of memory, by applying data-driven and parallel optimisations.
 
 \section*{Work completed}
 
-Maximum 100 words.
+The project successfully met all core objectives and explored most extensions. The extension on through-memory dependencies 
+stated in the proposal was ultimately not considered, and the work on GPU-based compute did not yield the expected 
+performance benefits. I successfully built several iterations of a pipeline that computed the critical paths in program 
+execution traces, and evaluated the effect of several optimisations and strategies, both data-driven and hardware-based.
 
 \section*{Special difficulties}
 
-Maximum 100 words.
+None.
 
 \listoffigures
 \listoftables
@@ -237,9 +247,6 @@ Maximum 100 words.
 %% Acknowledgements
 %%
 %%%%%
-\section*{Acknowledgements}
-
-Acknowledgements go here...
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%
@@ -285,7 +292,7 @@ Acknowledgements go here...
 \include{appendices/maths-defs-proofs}
 \include{appendices/additional-code-listings}
 \include{appendices/nni-histograms}
-\include{appendices/tool-outputs}
+% \include{appendices/tool-outputs}
 \include{appendices/project-proposal}
 
 % \include{appendices/latex-primer}
