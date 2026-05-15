@@ -647,7 +647,7 @@ This project utilises \verb|concurrent_bounded_queue| from Intel's oneAPI Thread
 as a producer-consumer queue, which safely blocks consumers when empty.
 We also make use of a custom lock-free linked list that uses compare and swap (CAS) operations to insert a new node.
 Insertion is restricted to the head, and we can insert a tombstone sentinel value that causes insertion operations 
-to fail. Pseudocode is given in %TODO:
+to fail. Pseudocode is given in \ref{alg:lock-free-list}.
 
 \subsection{Pipelined parallelism} \label{impl:split-compute}
 
@@ -762,7 +762,7 @@ However, performing local frequency analysis on smaller chunks of the expression
 encoding stage. The BPE-adjacent approach performs best with global frequency values as the frequency distribution
 within a single chunk may not reflect the frequency distribution of the whole expression. This often leads to a 
 worse evaluation order within each chunk, requiring more multiplications to reduce the expression as a whole, but we
-hope to offset this extra work by utilising more compute. The impact on efficiency is explored in Section \ref{eval:concurrency}.
+offset this extra work by utilising more compute when multiplying. 
 
 \subsubsection{Final parallel pipeline}
 

@@ -3,21 +3,25 @@
 \section{Methodology}
 
 The analysis tools were benchmarked on the program execution traces described in \ref{prep:datasets}.
-Benchmarks were executed locally on my own laptop with the following hardware specs:
-\begin{description}[noitemsep, topsep=0pt]
-  \item[CPU:] 12th Gen Intel(R) Core(TM) i7-12700H.
-  \item [RAM:] 16GiB LPDDR5 @ 6000MT/s
-  \item [GPU:] Intel(R) Iris(R) Xe Graphics. 96 Compute Units @ 1.4GHz
-  \item [Drive:] WD\_BLACK SN770 1TB NVMe drive
-\end{description}
+Benchmarks were executed on two devices, which we call Small and Big, with hardware details in Figure \ref{tbl:specs}.
+\begin{table}[ht]
+  \centering
+\begin{tabular}{l c c}
+  \toprule
+   & \textbf{Small} & \textbf{Big} \\
+  \midrule
+  \textbf{CPU} & AMD Ryzen 9 6900HX & 2x Ampere Altra (2x80 cores @ 3GHz) \\
+  \textbf{RAM} & 16GB DDR5 @ 4800MT/s & 32GB DDR4 @ 3200MT/s \\
+  \textbf{GPU} & Nvidia GeForce RTX 3080Ti Mobile & N/A \\
+  \bottomrule
+\end{tabular}
+\caption{Hardware specification for each benchmark device. Boost clock was disabled for Small, so each core ran at 3.3Ghz.}
+\label{tbl:specs}
+\end{table}
 
-The CPU is a heterogeneous architecture, with 6 2-way SMT-capable performance cores boosting to 4.7GHz, and 8 efficiency
-cores boosting to 3.5GHz. The benchmarks were executed without turbo boosting, to prevent throttling from overheating,
-which generates noisy results, and so P cores were limited to 2.3GHz, and E cores to 1.7GHz.
-
-Timings and metrics were collected with a custom metrics registry that recorded per-thread events, including nanosecond-level 
-timestamps, in local thread memory, before flushing to a CSV format at the end of execution. 
-Each configuration of parameters for a benchmark was executed 5 times, and then the median time reported.
+Timings and metrics were collected with a custom metrics registry that recorded per-thread events with nanosecond-level 
+timestamps in local thread memory, before flushing to a CSV format at the end of execution. 
+Each configuration of parameters for a benchmark was executed 10 times, and then the median time reported.
 
 \section{Holistic pipeline} \label{eval:holistic-pipeline}
 
@@ -26,14 +30,15 @@ The notable implementations are the single-threaded pipeline (Figure \ref{fig:si
 the parallel pipeline (Figure \ref{fig:multi-threaded-pipeline}), and the GPU-enabled 
 pipeline, which is similar to the parallel pipeline except the GPU performs the evaluation instead of a set of CPU cores.
 
-4 encoder threads and 12 compute threads were used for the parallel approach. Fast loop finding was enabled, and the
+4 encoder threads and 10 compute threads were used for the parallel approach. Fast loop finding was enabled, and the
 variable pair encoder with $r=0.4$ was used. For the single-threaded and parallel pipelines, sparse matrix representations 
 were used, but the GPU-enabled pipeline made use of dense matrices.
+The benchmarks were executed on Small to provide fair comparison with the GPU approach.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=1\textwidth]{graphs/holistic/pipelines.png}
-  \caption{Comparing the speedup for different pipeline implementations.}
+  \caption{Comparing the speedup for different implementations, executed on the Small machine.}
   \label{eval:fig:all-pipelines}
 \end{figure}
 
@@ -43,12 +48,12 @@ were used, but the GPU-enabled pipeline made use of dense matrices.
   \toprule
   \textbf{Dataset} & \textbf{NB} & \textbf{Single} & \textbf{Para.} & \textbf{GPU} \\
   \midrule
-  cksum   & 10.9 & 42.6 & 51.8 & 915.3 \\
-  cksum32 & 11.0 & 535.1 & 547.7 & 1319.4 \\
-  factor  & 10.9 & 1624.1 & 947.0 & 13076.3 \\
-  sha1sum & 11.4 & 39.2 & 53.9 & 992.4 \\
-  shuf    & 11.4 & 95.2 & 83.0 & 1107.5 \\
-  sort    & 11.7 & 156.5 & 158.5 & 1434.0 \\
+  cksum   & 11.2 & 43.3 & 49.8 & 860 \\
+  cksum32 & 11.1 & 551 & 560 & 1276 \\
+  factor  & 11.1 & 1601 & 906 & 14034 \\
+  sha1sum & 11.4 & 46.0 & 55.7 & 930 \\
+  shuf    & 11.4 & 79.6 & 79.6 & 1052 \\
+  sort    & 11.8 & 182 & 219 & 1346 \\
   \bottomrule
 \end{tabular}
 \caption{Memory usage breakdown for each approach (MB, maximum resident set size)}
@@ -56,14 +61,16 @@ were used, but the GPU-enabled pipeline made use of dense matrices.
 \end{table}
 
 Figure \ref{eval:fig:all-pipelines} shows that 
-across every single program trace, the fully parallel pipeline is 2 to 10 times faster than the naive baseline. 
-Parallelisation clearly accelerates reduction, but trace loading unchanged; the sequential I/O involved visualises Amdahl's Law.
-For easily reducible traces (cksum32 and sha1sum), loading the trace dominates the program's lifecycle,
-implying diminishing returns for further parallelisation.
-Furthermore, the GPU approach is universally slower than the parallel CPU approach, and in cases like cksum or factor 
-is slower than the single-threaded CPU approach. %TODO: WHY is the io so much slower?? PROBABLY because it is not lock-free.
+across every single program trace, the fully parallel pipeline is 2 to 7 times faster than the naive baseline. 
+Parallelisation clearly accelerates reduction, but trace loading is unchanged; the sequential I/O involved visualises Amdahl's Law.
+Loading the trace dominates the program's lifecycle, implying diminishing returns from further parallelisation.
+Furthermore, the GPU approach is universally slower than both the single-threaded and parallel approaches. This is likely 
+due to the poor GPU throughput and throttling of the memory bandwidth, as dense matrix data is constantly 
+being transferred between the CPU and GPU. This adds increased contention for other threads performing encoding.
 
-Finally, Table \ref{tbl:memory-breakdown} provides an overview of 
+%TODO: Talk about single-threaded being slower for sort - high entropy trace with more complex structure.
+
+Table \ref{tbl:memory-breakdown} provides an overview of 
 memory footprints. Matrix based approaches predictably use more memory, as
 not only does the system store more data in matrices but also requires the entire trace to be loaded simultaneously
 for reduction, whereas the baseline streams the trace from disk and discards it after processing.
@@ -76,7 +83,7 @@ result for extended periods of time while the GPU clears the backlog.
 
 This section evaluates the impact of the data-driven optimisations presented in Sections \ref{impl:matrices}
 and \ref{impl:fast-expr}, to assess the PE requirement from Table \ref{tbl:requirements-analysis}.
-Benchmarks are performed using the single-threaded 
+Benchmarks are executed on the Small machine for increased single-thread performance, and use the single-threaded 
 pipeline from Figure \ref{fig:single-threaded-pipeline}, in some cases with 
 components excluded to assess their impact.
 
@@ -239,10 +246,6 @@ This trade-off does not translate to sort, however, as the performance is notabl
 are made. This implies that the greedy approach has much worse efficiency for this trace and the complex 
 branch structure of the underlying merge sort algorithm is better suited to a pure pair encoding approach.
 
-Because the loader stage involves sequential I/O work, this becomes the primary sequential bottleneck for our analysis tool.
-Amdahl's law \cite{amdahl} states that speedup is limited by this sequential part of the pipeline, and so our further
-parallel optimisations will be limited by the large loader stage.
-
 Overall, I believe this single-threaded pipeline satisfies the success criteria for the PE requirement in Table
 \ref{tbl:requirements-analysis}.
 
@@ -252,9 +255,11 @@ This section breaks down the parallel optimisations presented in Sections \ref{i
 and \ref{impl:gpu}, to assess the the MP and GA project requirements from Table \ref{tbl:requirements-analysis}.
 
 Benchmarks are performed using the multi-threaded pipeline from Figure \ref{fig:multi-threaded-pipeline}.
-We mostly focus on benchmarks performed on the factor trace, as it required the largest number of multiplications to reduce the expression.
+We focus on the factor trace, as it required the largest number of multiplications to reduce the expression.
 
 \subsection{Concurrency} \label{eval:concurrency}
+
+Concurrency benchmarks are executed on the Big machine to show off scaling properties on a wider range of thread configurations.
 
 \begin{figure}[htbp]
   \centering
@@ -264,62 +269,40 @@ We mostly focus on benchmarks performed on the factor trace, as it required the 
 \end{figure}
 
 Figure \ref{eval:fig:multi-thread-speedup} 
-immediately shows the impact of introducing an asynchronous architecture on the runtime of the multi-threaded pipeline components.
-By increasing the number of threads doing matrix multiplication to 4, runtime drops from 9s down to $\sim$2.5s, and
-further, albeit less significant improvements are seen when increasing both the number of encoding and compute threads.
-This satisfies the success criteria for the MP requirement.
+immediately shows the impact of introducing an asynchronous architecture on the runtime of the parallel pipeline components.
+By increasing the number of threads, runtime drops from 7.5s down to 1.5s. This satisfies the success criteria for the MP requirement,
+as the program clearly scales with increased thread counts.
+The lag time of the pipeline is the time between when the full evaluation order is determined and when the expression is 
+fully reduced. This is eliminated as the number of compute threads relative to the number of encoding threads is increased,
+showing that each encoder thread generates enough multiplication jobs for several compute threads.
 
-Interestingly, the chunk multiplier only has a small impact on performance. The expression is split up into a number of chunks equal 
-to the number of encoding threads multiplied by the chunk multiplier.
-Section \ref{impl:enc-scaling} theorised that splitting into several chunks would equalise the work 
-done by each thread, and while this does result in a small improvement, it is likely that the impact is minimal as the previous stages in 
-the pipeline have already simplified many patterns, leaving behind a more homogeneous expression.
-
-To understand the large drop in runtime, we can examine the lag time of the pipeline, which is the time between the 
-parallel encoder stage completing the evaluation order, and the expression being completely reduced. We see 
-that increasing the number of compute threads relative to the number of encoding threads almost eliminates this lag time, 
-and so choosing the right number of threads is a balancing act. The encoding threads provide work for the compute threads, and so 
-we need enough compute threads to keep up with the work, and enough encoding threads to ensure that the compute threads do not starve.
+Performance worsens slightly at the 8:64 thread mark. This is not due to multiplication performance, as active throughput steadily
+increases up to 8:64 and dependency management overhead remains at $<10\%$, as shown in Figure \ref{eval:fig:multi-thread-throughput}.
+However, we can see that encoder efficiency is impacted.
+The proportion of time the encoder threads are doing useful work falls steadily.
+Encoder threads spend increasingly more time on the dependency resolution involved when queueing multiplication jobs, 
+and so the analysis and reduction of the matrix expression does not get any faster. This is most likely due to increased 
+cache contention, as the number of threads doing memory-heavy matrix multiplications has increased and shared 
+caches are oversaturated.
 
 \begin{figure}[htbp]
   \centering
   \includegraphics[width=1\textwidth]{graphs/concurrent/factor_mults.png}
-  \caption{Matrix multiplication throughput and dependency overhead for various thread configurations.}
+  \caption{Matrix multiplication throughput and overhead for various thread configurations.}
   \label{eval:fig:multi-thread-throughput}
 \end{figure}
 
-We also see in Figure \ref{eval:fig:multi-thread-throughput}
-an order of magnitude increase in the throughput between 1 and 12 compute threads. Dependency management maintains a
-fairly constant overhead of between 20\% to 30\%, so this approach scales well with regards to the 
-shared data structures involved.
-
-However, the multiplication throughput, along with the total runtime in Figure \ref{eval:fig:multi-thread-speedup}
-harshly tapers off beyond the 4:12 thread configuration. This could be caused by several reasons.
-
-\begin{figure}[htbp]
-  \centering
-  \includegraphics[width=0.8\textwidth]{graphs/concurrent/factor_compression.png}
-  \caption{Encoder compression performance changing with chunk size.}
-  \label{eval:fig:multi-thread-compression}
-\end{figure}
-
-Section \ref{impl:enc-scaling} explains that splitting the expression into more,
-smaller chunks damages the encoder's overall efficiency. Figure \ref{eval:fig:multi-thread-compression} 
-quantifies this with a decrease in compression ratio from 7 to 5 representing a 40\% increase in the number of
-multiplications required to reduce the final expression. This may contribute to poor scaling with more chunks, but since
-the lag time is still close to zero in this case, the compute threads are still able to keep up with the increased number
-of queued multiplications.
-
-I believe the issue arises from hardware limits - particularly the thread limit and the heterogeneous architecture.
-With the higher thread configuration of 5:15, the CPU becomes oversubscribed. The Intel i7-12700H supports a maximum of
-20 hardware threads. By using 20 threads for asynchronous compute, alongside the main thread and other OS threads running
-in the background, the CPU can no longer allow a thread to run uninterrupted on a core, and so the share of the CPU time
-a thread receives is diminished. We may also become limited by the memory bandwidth; with 15 cores doing multiplication
-operations, the shared L3 cache is quickly saturated. Additionally, Intel's heterogeneous architecture of performance
-and efficiency cores further reduces the return on investment. As the number of threads used increases, 
-more of these have to run on less powerful efficiency cores, and so the scaling curve flattens.
+Performance at the 16:128 thread configuration collapses due to the consequences of Non Uniform Memory Access (NUMA) penalties.
+While the Big machine supports up to 160 hardware threads, they are physically distributed across a dual-socket architecture.
+Scaling to more than 80 threads schedules them across both processors. Because the program is NUMA oblivious, threads
+on processor 0 constantly attempt to read and modify jobs and dependencies residing in the cache of processor 1 and vice-versa.
+This cross-socket contention triggers huge cache coherency traffic across the processor interconnect, as shared cache 
+lines are repeatedly invalidated and transferred between both processors. The cores are subject to severe memory stalls 
+and throughput slumps.
 
 \subsection{GPU analysis}
+
+GPU benchmarks are executed on the Small machine to make use of the 3080Ti Mobile.
 
 \begin{table}[ht]
   \centering
@@ -327,12 +310,12 @@ more of these have to run on less powerful efficiency cores, and so the scaling 
   \toprule
   \textbf{Section} & \textbf{Time taken (ms)} & \textbf{Percentage} \\
   \midrule
-  Pack    & 8.534 & 26.1\% \\
-  Send    & 2.149 & 6.58\% \\
-  Compute & 11.56 & 35.4\% \\
-  Receive & 2.931 & 8.97\% \\
-  Unpack  & 6.970 & 21.3\% \\
-  Total   & 32.67 &  100\% \\
+  Pack    & 15.9 & 38.1\% \\
+  Send    & 9.92 & 23.7\% \\
+  Compute & 1.70 & 4.06\% \\
+  Receive & 4.78 & 11.4\% \\
+  Unpack  & 9.46 & 22.7\% \\
+  Total   & 41.7 &  100\% \\
   \bottomrule
 \end{tabular}
 \caption{GPU timeline breakdown for a batch of 4096 multiplications.}
@@ -341,14 +324,11 @@ more of these have to run on less powerful efficiency cores, and so the scaling 
 
 Table \ref{tbl:gpu-breakdown} details a 
 4096-multiplication batch dispatched to the OpenCL kernel (Algorithm \ref{alg:gpu-kernel}).
-The total time of 32.67ms yields a throughput of $\sim$125,374 multiplications per second.
+The total time of 41.7ms yields a throughput of $\sim$100,000 multiplications per second.
 Compared to CPU scaling (Figure \ref{eval:fig:multi-thread-throughput}),
-this mirrors the throughput of a single CPU thread, and is eclipsed by the full use of 12-15 threads. This stems from 
-the hardware constraints and the synchronous dispatcher architecture.
+this mirrors the throughput of a single CPU thread, and is eclipsed by the full use of 12-15 threads. 
 
-Hardware-wise, the Intel Iris Xe integrated GPU is heavily constrained, and shares power, memory and thermal limits with 
-the host CPU. Software-wise, Table \ref{tbl:gpu-breakdown}
-reveals that data management and transfer overhead consumes $\sim$65\% of the execution time.
+Data management and transfer overhead consumes $\sim$96\% of the execution time.
 As matrices are allocated dynamically on the heap (see Section \ref{impl:matrix-approach}),
 their non-contiguous addresses force the CPU to chase scattered pointers and individually copy each matrix's data
 during packing and unpacking.
